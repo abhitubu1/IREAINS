@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Renew & Pay | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="billing" data-hero="dark">
+<header id="site-header"></header>
+<main>
+  <section class="hero page-hero" style="padding:44px 0 48px"><div class="wrap">
+    <div class="crumbs"><a href="dashboard.html">My account</a> / Renew & pay</div>
+    <h1>Renew & <span class="red">pay</span></h1><p class="lead" style="margin:0">Premiums, renewals, AutoPay and payment history in one place.</p>
+  </div></section>
+  <section class="block tight"><div class="wrap layout-side">
+    <div>
+      <div id="nba" style="margin-bottom:24px"></div>
+      <div class="panel"><div class="panel-head"><h3>Due now</h3></div><div id="due"></div></div>
+      <div class="panel"><div class="panel-head"><h3>Upcoming renewals</h3></div><div id="renewals"></div></div>
+      <div class="panel"><div class="panel-head"><h3>Payment history</h3></div><div id="history"></div></div>
+    </div>
+    <aside>
+      <div class="panel" id="autopay"></div>
+      <div class="panel" id="paperless"></div>
+      <div class="panel hidden" id="alternatives"></div>
+      <div class="panel" id="waiver"></div>
+    </aside>
+  </div></section>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.init();
+const seen = a => { const c = Store.current(); return Store.s.responses.some(r => r.cid === c.id && r.aid === a); };
+if (UI.requireLogin()) {
+  UI.nba("nba", { channel: "Web", context: "billing", limit: 2, variant: "list", empty: "" });
+  render();
+  window.addEventListener("store:change", render);
+  if (location.hash) setTimeout(() => { const el = document.querySelector(location.hash); if (el) el.scrollIntoView({ behavior: "smooth" }); }, 300);
+}
+
+function render() {
+  const c = Store.current(); if (!c) return;
+  const due = c.payments.filter(p => ["Due", "Failed", "Overdue"].includes(p.status));
+  document.getElementById("due").innerHTML = due.map(p => {
+    const pol = c.policies.find(x => x.no === p.policy) || {};
+    const lapsed = pol.status === "Lapsed";
+    return `<div class="policy-card"><span class="ico-bubble ${p.status === "Due" ? "blue" : ""}">${icon("card")}</span>
+      <div><h4>${money(p.amount)} — ${esc(pol.product || p.policy)}</h4><div class="sub">${p.policy} · ${p.status === "Due" ? "due " + fdate(p.due) : `${p.status}${p.failReason ? " (" + p.failReason + ")" : ""} · was due ${fdate(p.due)}`}${pol.status === "Grace" ? ` · <b style="color:var(--red)">grace ends ${fdate(pol.graceEnds)}</b>` : ""}</div></div>
+      <div class="right">${UI.statusBadge(p.status)}<div style="margin-top:6px">${lapsed ? `<a class="btn btn-primary btn-xs" href="policy.html?no=${pol.no}&reinstate=1">Reinstate</a>` : `<button class="btn btn-primary btn-xs" data-pay="${p.id}">Pay now</button>`}</div></div></div>`;
+  }).join("") || `<div class="nba-empty">${icon("check")} Nothing due — you're all paid up.</div>`;
+  document.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => pay(b.dataset.pay));
+
+  const ren = H.pols(c).filter(p => p.status === "Active" && daysUntil(p.end) <= 90).sort((a, b) => a.end.localeCompare(b.end));
+  document.getElementById("renewals").innerHTML = ren.map(p => `<div class="policy-card"><span class="ico-bubble amber">${icon(UI.lineIcon(p.line))}</span>
+      <div><h4>${esc(p.product)}</h4><div class="sub">${p.no} · renews ${fdate(p.end)} (${daysUntil(p.end)} days) · ${p.autoRenew ? "auto-renew on" : "auto-renew off"}</div></div>
+      <div class="right"><a class="btn btn-dark btn-xs" href="policy.html?no=${p.no}&renew=1">Renew</a></div></div>`).join("") || `<div class="nba-empty">No renewals in the next 90 days.</div>`;
+
+  document.getElementById("history").innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>Date</th><th>Policy</th><th>Method</th><th class="num">Amount</th><th>Status</th></tr></thead><tbody>
+    ${c.payments.map(p => `<tr><td>${fdate(p.paidOn || p.due)}</td><td>${p.policy}</td><td>${esc(p.method || "—")}</td><td class="num">${money(p.amount)}</td><td>${UI.statusBadge(p.status)}</td></tr>`).join("")}</tbody></table></div>`;
+
+  document.getElementById("autopay").innerHTML = `<div class="panel-head"><h3>AutoPay</h3>${c.autoPay ? '<span class="badge b-green">On</span>' : '<span class="badge b-gray">Off</span>'}</div>
+    <p class="small muted">${c.autoPay ? "Premiums are collected automatically on the due date via your mandate." : "Pay premiums automatically on the due date with GCash AutoPay or an Auto Debit Arrangement (ADA)."}</p>
+    ${c.payments.some(p => p.status === "Failed" && /Auto-debit/.test(p.method || "")) ? `<div class="notice warn small" style="margin-bottom:12px">${icon("alert")}<div>Your last auto-debit bounced. Update your mandate to avoid another failure.</div></div>` : ""}
+    <button class="btn ${c.autoPay ? "btn-ghost" : "btn-dark"} btn-sm btn-block" id="ap">${c.autoPay ? "Update mandate" : "Set up auto-debit"}</button>`;
+  document.getElementById("ap").onclick = () => {
+    const m = UI.modal(`<span class="ico-bubble" style="margin-bottom:12px">${icon("repeat")}</span><h3>Auto-debit mandate</h3>
+      <div class="opt-grid"><label class="opt"><input type="radio" name="mt" checked><div><b>GCash AutoPay</b><span>Approve in your GCash app</span></div></label><label class="opt"><input type="radio" name="mt"><div><b>Auto Debit Arrangement (ADA)</b><span>BDO, BPI, Metrobank and more</span></div></label></div>
+      <div class="field"><label>GCash number or bank account (demo)</label><input id="upi" placeholder="0917 123 4567"></div><p class="xs muted">Premiums are debited on the due date; you're notified 3 days before. Demo only.</p><button class="btn btn-primary btn-block" id="ok">Approve mandate</button>`);
+    m.querySelector("#ok").onclick = () => { Store.update(c.id, x => { x.autoPay = true; x.payments.forEach(p => { if (p.status === "Due") p.method = "GCash AutoPay"; }); }); UI.convert(["E21", "R11", "L07"].filter(seen)); UI.closeModal(); UI.toast("Mandate set up. We'll never let a premium slip."); };
+  };
+
+  document.getElementById("paperless").innerHTML = `<div class="panel-head"><h3>Paperless statements</h3><label class="toggle"><input type="checkbox" id="pl" ${c.paperless ? "checked" : ""}><span></span></label></div>
+    <p class="small muted" style="margin:0">${c.paperless ? "You get e-statements by email. Thank you for going green 🌱" : "Switch to e-statements and we'll plant a tree in your name."}</p>`;
+  document.getElementById("pl").onchange = e => { Store.update(c.id, x => { x.paperless = e.target.checked; }); if (e.target.checked) { UI.convert(["N20"].filter(seen)); UI.toast("You're paperless — a tree will be planted in your name."); } };
+
+  const g = H.grace(c);
+  const w = document.getElementById("waiver");
+  if (g && g.frequency === "Monthly" && g.line !== "life") {
+    w.classList.remove("hidden");
+    w.innerHTML = `<div class="panel-head"><h3>Tight month?</h3></div><p class="small muted">Skip one instalment of ${money(g.instalment)} and spread it over your remaining months — cover and NCB stay intact.</p><button class="btn btn-outline btn-sm btn-block" id="wv">Request a premium waiver</button>`;
+    document.getElementById("wv").onclick = () => {
+      Store.update(c.id, x => {
+        const p = x.policies.find(y => y.no === g.no); p.status = "Active"; delete p.graceSince; delete p.graceEnds;
+        x.payments.forEach(y => { if (y.policy === g.no && y.status === "Failed") { y.status = "Waived"; y.paidOn = D(0); } });
+        x.risk.lapseScore = .35; x.signals.hardship = false;
+        x.interactions.unshift({ date: D(0), channel: "Web", note: `Premium waiver applied to ${g.no}` });
+      });
+      Store.event(c.id, "conversion", `Premium waiver accepted · ${g.no}`);
+      UI.convert(["R03", "R01", "N13", "R02"].filter(seen)); UI.toast("Waiver applied — your policy is active again.");
+    };
+  } else w.classList.add("hidden");
+
+  // L08 Lapse Alternatives Offer — life policy in its grace period.
+  const lg = H.lifeGrace(c), alt = document.getElementById("alternatives");
+  if (lg) {
+    alt.classList.remove("hidden");
+    alt.innerHTML = `<div class="panel-head"><h3>Can't pay right now?</h3><span class="badge b-amber">Grace ends ${fshort(lg.graceEnds)}</span></div>
+      <p class="small muted">Don't let ${esc(lg.product)} lapse. Choose an option that keeps your family protected:</p>
+      ${[["holiday", "3-month premium holiday", "Pause premiums for 3 months; cover continues."],
+         ["smaller", "Smaller monthly payments", `Spread the overdue amount: about ${money(lg.instalment ? lg.instalment * 0.75 : lg.premium / 16)} a month for 16 months.`],
+         ["paidup", "Reduced paid-up policy", `Stop premiums; keep a reduced guaranteed benefit of about ${lakh((lg.maturityValue || lg.sumAssured) * .45)}.`]]
+        .map(([k, h, d], i) => `<label class="opt" style="margin-bottom:8px"><input type="radio" name="alt" value="${k}" ${i ? "" : "checked"}><div><b>${h}</b><span>${d}</span></div></label>`).join("")}
+      <button class="btn btn-primary btn-sm btn-block" style="margin-top:6px" id="alt-go">Apply this option</button>
+      <button class="link small" style="margin-top:10px" id="alt-call">Talk it through with someone</button>`;
+    document.getElementById("alt-go").onclick = () => {
+      const v = document.querySelector("input[name=alt]:checked").value;
+      const label = { holiday: "3-month premium holiday", smaller: "smaller monthly payments", paidup: "reduced paid-up conversion" }[v];
+      Store.update(c.id, x => {
+        const p = x.policies.find(y => y.no === lg.no);
+        p.status = "Active"; delete p.graceSince; delete p.graceEnds;
+        if (v === "paidup") { p.product += " (reduced paid-up)"; p.premiumsComplete = true; p.maturityValue = Math.round((p.maturityValue || p.sumAssured) * .45); }
+        if (v === "smaller") p.instalment = Math.round((p.instalment || p.premium / 12) * .75);
+        x.payments.forEach(y => { if (y.policy === lg.no && ["Failed", "Overdue"].includes(y.status)) { y.status = v === "holiday" ? "Deferred" : "Rescheduled"; y.paidOn = D(0); } });
+        x.risk.lapseScore = .3; x.signals.hardship = false;
+        x.interactions.unshift({ date: D(0), channel: "Web", note: `Lapse alternative applied to ${lg.no}: ${label}` });
+      });
+      Store.event(c.id, "conversion", `Lapse alternative accepted · ${lg.no} · ${label}`);
+      UI.convert(["L08", "N13", "R01", "R02", "E07"].filter(seen));
+      UI.toast(`Done: ${label}. ${lg.product} stays in force.`);
+    };
+    document.getElementById("alt-call").onclick = () => UI.callback("L08", `Lapse alternatives — ${lg.no}`);
+  } else alt.classList.add("hidden");
+}
+
+function pay(id) {
+  const c = Store.current(), p = c.payments.find(x => x.id === id);
+  const m = UI.modal(`<h3>Pay ${money(p.amount)}</h3><p class="muted small">Policy ${p.policy}</p>
+    <div class="opt-grid">${["GCash", "Card", "Online banking"].map((x, i) => `<label class="opt"><input type="radio" name="pm" value="${x}" ${i ? "" : "checked"}><div><b>${x}</b></div></label>`).join("")}</div>
+    <label class="check"><input type="checkbox" id="ap2" ${c.autoPay ? "checked disabled" : ""}><span>Also set up AutoPay for future premiums</span></label>
+    <p class="xs muted">Demo: no real payment is taken.</p><button class="btn btn-primary btn-block" id="ok">Pay ${money(p.amount)}</button>`);
+  m.querySelector("#ok").onclick = () => {
+    const method = m.querySelector("input[name=pm]:checked").value, ap = m.querySelector("#ap2").checked;
+    Store.update(c.id, x => {
+      const y = x.payments.find(z => z.id === id); y.status = "Paid"; y.paidOn = D(0); y.method = method;
+      const pol = x.policies.find(z => z.no === y.policy);
+      if (pol && pol.status === "Grace") { pol.status = "Active"; delete pol.graceSince; delete pol.graceEnds; }
+      x.risk.lapseScore = Math.min(x.risk.lapseScore, .25); x.signals.hardship = false;
+      if (ap) x.autoPay = true;
+      x.interactions.unshift({ date: D(0), channel: "Web", note: `Paid ${money(y.amount)} for ${y.policy}` });
+    });
+    Store.event(c.id, "conversion", `Premium paid · ${money(p.amount)} · ${p.policy}`);
+    UI.convert(["E07", "N13", "R01", "R02", "R10", "R11", ...(ap ? ["E21"] : [])].filter(seen));
+    UI.closeModal(); UI.toast("Payment successful — your cover is fully active.");
+  };
+}
+</script>
+</body>
+</html>

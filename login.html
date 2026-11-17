@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Log in | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="login" data-hero="dark">
+<header id="site-header"></header>
+<main>
+  <section class="hero" style="padding:64px 0 80px">
+    <div class="wrap hero-grid" style="align-items:start">
+      <div>
+        <span class="chip chip-red" style="margin-bottom:18px">Secure login</span>
+        <h1 style="font-size:clamp(2rem,4vw,3rem)">Welcome back to <span class="red">Instellars</span></h1>
+        <p class="lead">Manage policies, track claims, renew in two taps and see recommendations made for you.</p>
+        <div class="card" style="max-width:440px;margin-top:28px;padding:28px" id="login-card"></div>
+      </div>
+      <div>
+        <div class="glass" style="padding:24px">
+          <span class="cdh-tag" style="color:#7FE3E3">Pega CDH demo</span>
+          <h3 style="color:#fff;margin:6px 0 4px">Demo personas</h3>
+          <p style="color:rgba(255,255,255,.65);font-size:.9rem">Each persona sits at a different point across the 16 customer journeys. Sign in to see how Next-Best-Actions change.</p>
+          <div id="personas"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+  UI.init();
+  const next = UI.q("next") || "dashboard.html";
+  const go = id => { Store.login(id); location.href = next; };
+  const card = document.getElementById("login-card");
+
+  function step1() {
+    card.innerHTML = `
+      <h3>Log in with OTP</h3>
+      <div class="field"><label>Mobile number, email or policy number</label><input id="ident" placeholder="e.g. 0917 555 0134 or MOT-2023-448812" autocomplete="username"></div>
+      <button class="btn btn-primary btn-block" id="send">Send OTP</button>
+      <p class="xs muted" style="margin:12px 0 0">Demo: use any persona's mobile, email or policy number — or pick a persona on the right.</p>`;
+    document.getElementById("send").onclick = () => {
+      // PH mobiles match with or without +63 / leading 0 (e.g. 0917 555 0134 = +63 917 555 0134).
+      const norm = s => s.trim().toLowerCase().replace(/[\s()]/g, "").replace(/^(\+?63|0)(?=9)/, "");
+      const v = norm(document.getElementById("ident").value);
+      if (!v) { UI.toast("Enter your mobile, email or policy number."); return; }
+      const c = Store.allCustomers().find(x => norm(x.phone) === v || x.email.toLowerCase() === v || x.policies.some(p => p.no.toLowerCase() === v));
+      if (!c) { UI.toast("We couldn't find an account with those details."); return; }
+      step2(c);
+    };
+  }
+  function step2(c) {
+    card.innerHTML = `
+      <h3>Enter the code</h3>
+      <p class="small muted">We sent a 6-digit code to ${esc(c.phone.slice(0, -5).replace(/\d/g, "•") + c.phone.slice(-5))}.</p>
+      <div class="field"><label>One-time password</label><input id="otp" inputmode="numeric" maxlength="6" placeholder="Demo code: 123456" autocomplete="one-time-code"></div>
+      <button class="btn btn-primary btn-block" id="verify">Verify & log in</button>
+      <button class="link small" style="margin-top:12px" id="back">Use a different number</button>`;
+    document.getElementById("verify").onclick = () => {
+      if (document.getElementById("otp").value.trim() !== "123456") { UI.toast("Incorrect code. For the demo, use 123456."); return; }
+      go(c.id);
+    };
+    document.getElementById("back").onclick = step1;
+  }
+  step1();
+
+  document.getElementById("personas").innerHTML = Store.allCustomers().map(c => `
+    <button class="persona" data-id="${c.id}" style="background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.14);color:#fff">
+      <span class="avatar">${c.first[0]}${c.name.split(" ")[1][0]}</span>
+      <div><b>${esc(c.name)} <span class="xs" style="opacity:.6">${esc(CDH.displayId(c))}</span></b><span style="color:rgba(255,255,255,.65)">${esc(c.persona)}</span></div>
+    </button>`).join("");
+  document.querySelectorAll("#personas [data-id]").forEach(b => b.onclick = () => go(b.dataset.id));
+</script>
+</body>
+</html>

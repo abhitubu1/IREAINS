@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Policy details | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="policy" data-hero="dark">
+<header id="site-header"></header>
+<main>
+  <section class="hero page-hero" style="padding:44px 0 48px"><div class="wrap" id="phead"></div></section>
+  <section class="block tight"><div class="wrap layout-side">
+    <div>
+      <div id="pnba" style="margin-bottom:24px"></div>
+      <div class="panel" id="details"></div>
+      <div class="panel" id="explainer"></div>
+      <div class="panel" id="addons"></div>
+      <div class="panel hidden" id="si"></div>
+      <div class="panel" id="documents"></div>
+    </div>
+    <aside class="sticky" id="side"></aside>
+  </div></section>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.init();
+const NO = UI.q("no");
+const NCB_LADDER = [0, 20, 25, 35, 45, 50];
+const getP = () => { const c = Store.current(); return c && c.policies.find(p => p.no === NO); };
+const seen = a => { const c = Store.current(); return Store.s.responses.some(r => r.cid === c.id && r.aid === a); };
+
+if (UI.requireLogin()) {
+  if (!getP()) {
+    document.getElementById("phead").innerHTML = `<h1>Policy not found</h1><p class="lead">We couldn't find ${esc(NO || "that policy")} on your account.</p><a class="btn btn-primary" href="dashboard.html">Back to dashboard</a>`;
+  } else {
+    UI.nba("pnba", { channel: "Web", context: "policy", limit: 2, variant: "list", empty: "" });
+    render();
+    window.addEventListener("store:change", render);
+    if (UI.q("renew")) setTimeout(renew, 250);
+    if (UI.q("reinstate")) setTimeout(reinstate, 250);
+    if (UI.q("revive")) setTimeout(revive, 250);
+    if (location.hash === "#explainer") UI.convert(["E06"]);
+    if (location.hash) setTimeout(() => { const el = document.querySelector(location.hash); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 350);
+  }
+}
+
+function render() {
+  const c = Store.current(), p = getP(); if (!p) return;
+  const lapsed = p.status === "Lapsed";
+  const title = p.line === "auto" ? `${p.insured.vehicle} · ${p.insured.reg}` : p.line === "travel" ? (p.insured.dest || p.insured.region) : p.line === "life" ? `${p.insured.life} · sum assured ${lakh(p.sumAssured)}` : p.insured.address;
+  const isLife = p.line === "life";
+  document.getElementById("phead").innerHTML = `
+    <div class="crumbs"><a href="dashboard.html">My account</a> / Policies / ${p.no}</div>
+    <div style="display:flex;justify-content:space-between;gap:24px;align-items:flex-end;flex-wrap:wrap">
+      <div><div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">${UI.statusBadge(p.status)}<span class="chip chip-dark">${p.no}</span></div>
+        <h1 style="margin-bottom:6px">${esc(p.product)}</h1><p class="lead" style="margin:0">${esc(title)}</p></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${lapsed ? (isLife ? `<button class="btn btn-primary" id="h-revive">Revive policy</button>` : `<button class="btn btn-primary" id="h-reinstate">Reinstate policy</button>`)
+          : isLife ? (c.payments.some(x => x.policy === p.no && ["Due", "Failed", "Overdue"].includes(x.status)) ? `<a class="btn btn-primary" href="payments.html">Pay premium</a>` : "")
+          : daysUntil(p.end) <= 60 && p.status !== "Cancelled" ? `<button class="btn btn-primary" id="h-renew">Renew now</button>` : ""}
+        ${p.status === "Grace" ? `<a class="btn btn-primary" href="payments.html">Pay overdue premium</a>` : ""}
+        <a class="btn btn-light" href="claims.html?new=1&policy=${p.no}">File a claim</a>
+      </div>
+    </div>`;
+  const on = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = fn; };
+  on("h-renew", renew); on("h-reinstate", reinstate); on("h-revive", revive);
+
+  const rows = [["Policy period", `${fdate(p.start)} – ${fdate(p.end)}`], ["Premium", `${money(p.premium)} / year${p.frequency === "Monthly" ? ` (${money(p.instalment)} monthly)` : ""}`]];
+  if (p.line === "auto") rows.push(["Market value insured", money(p.idv)], ["No-Claim Bonus", p.ncb + "%"], ["Fuel · Year", `${p.insured.fuel} · ${p.insured.year}`]);
+  if (p.line === "property") rows.push(["Building sum insured", p.sumInsured ? money(p.sumInsured) : "—"], ["Contents", p.contents ? money(p.contents) : "Not covered"], ["Property type", p.insured.type]);
+  if (p.line === "travel") rows.push(["Cover region", p.insured.region], ["Travellers", p.insured.travellers]);
+  if (isLife) {
+    rows[0] = ["Policy term", `${fdate(p.start)} – ${fdate(p.end)} (${p.termYears} years)`];
+    rows.push(["Life assured", p.insured.life], ["Sum assured", money(p.sumAssured)], ["Beneficiary", p.insured.nominee]);
+    if (p.plan === "savings") rows.push(["Guaranteed maturity value", money(p.maturityValue)]);
+    if (p.premiumsComplete) rows.push(["Premiums", "All premiums paid"]);
+    if (p.status === "Lapsed") rows.push(["Lapsed on", fdate(p.lapsedOn)]);
+  }
+  if (p.status === "Grace") rows.push(["Grace period ends", fdate(p.graceEnds)]);
+  document.getElementById("details").innerHTML = `<div class="panel-head"><h3>Cover details</h3></div><dl class="kv">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+
+  const COVER = {
+    auto: [["Accidental damage to your car", "Theft, fire, flood & riots", "Third-party injury & property", "Auto Personal Accident ₱100,000"], ["Wear & tear, mechanical breakdown", "Driving without a valid licence", "Drunk driving", "Depreciation on parts (unless Zero Dep)"]],
+    travel: [["Emergency medical & evacuation", "Flight delay cash", "Lost passport assistance", "Checked baggage loss"], ["Pre-planned treatment", "Adventure sports (unless added)", "Travel against medical advice", "Cancellations (unless added)"]],
+    life: [["Lump sum to your beneficiary on death, any cause", "Terminal illness payout (advance of sum assured)", "Riders you've added (critical illness, accident)", "Death benefit paid tax-free to beneficiaries"], ["Suicide in the first 12 months", "Non-disclosure of health or habits", "Death while the policy is lapsed", "Hazardous activities not declared"]],
+    property: [["Fire, lightning, explosion", "Typhoon, flood, earthquake", "Burglary & theft", "Temporary accommodation"], ["Wear & tear, gradual damage", "Unoccupied > 30 days", "Cash, bullion (unless added)", "Deliberate damage"]],
+  }[p.line];
+  document.getElementById("explainer").innerHTML = `
+    <div class="panel-head"><h3>What's covered</h3><span class="chip">${icon("play", "xs")} 90-sec explainer</span></div>
+    <div class="grid g2" style="gap:16px">
+      <div class="notice ok" style="flex-direction:column;gap:6px"><b>Covered</b>${COVER[0].map(x => `<span>✓ ${x}</span>`).join("")}</div>
+      <div class="notice danger" style="flex-direction:column;gap:6px"><b>Not covered</b>${COVER[1].map(x => `<span>✕ ${x}</span>`).join("")}</div>
+    </div>`;
+
+  const list = POLICY_ADDONS[p.line];
+  document.getElementById("addons").innerHTML = `
+    <div class="panel-head"><h3>Add-ons</h3><span class="small muted">Added mid-term at a pro-rated price</span></div>
+    ${list.map(a => {
+      const has = H.hasAddon(p, a.name) || (a.name === "Contents" && p.contents > 0);
+      const pro = a.price(p) * Math.max(0.1, daysUntil(p.end) / 365);
+      return `<div class="garage"><div><b>${a.name}</b><div class="xs muted">${has ? "Included in your policy" : `${money(a.price(p))}/yr · ${money(pro)} for the remaining ${Math.max(0, daysUntil(p.end))} days`}</div></div>
+        ${has ? `<span class="badge b-green">Active</span>` : ["Lapsed", "Cancelled"].includes(p.status) ? "" : `<button class="btn btn-dark btn-xs" data-add="${a.name}" data-price="${Math.round(pro)}">Add</button>`}</div>`;
+    }).join("")}`;
+  document.querySelectorAll("[data-add]").forEach(b => b.onclick = () => addAddon(b.dataset.add, +b.dataset.price));
+
+  const siEl = document.getElementById("si");
+  if (p.line === "property" && p.sumInsured > 0) {
+    siEl.classList.remove("hidden");
+    const rebuild = H.rebuildCost(p), under = p.sumInsured < rebuild * .9;
+    siEl.innerHTML = `<div class="panel-head"><h3>Sum insured check</h3>${under ? '<span class="badge b-amber">Underinsured</span>' : '<span class="badge b-green">Adequate</span>'}</div>
+      <p class="small muted">Estimated rebuild cost: ${p.insured.builtUp.toLocaleString("en-PH")} sqm × ${money(p.insured.rebuildRate)}/sqm = <b>${money(rebuild)}</b>. Last reviewed ${fdate(p.siReviewed)}.</p>
+      <div class="meter" style="margin-bottom:8px"><i style="width:${Math.min(100, p.sumInsured / rebuild * 100)}%"></i></div>
+      <div class="small" style="display:flex;justify-content:space-between"><span>Insured ${lakh(p.sumInsured)}</span><span>Needed ${lakh(rebuild)}</span></div>
+      ${under ? `<button class="btn btn-primary btn-sm" style="margin-top:14px" id="si-up">Increase to ${lakh(Math.ceil(rebuild / 1e5) * 1e5)}</button>` : ""}`;
+    on("si-up", () => {
+      const nv = Math.ceil(rebuild / 1e5) * 1e5, extra = Math.round((nv - p.sumInsured) * .0018 * 1.12 * daysUntil(p.end) / 365);
+      confirmPay(`Increase sum insured to ${lakh(nv)}`, extra, () => { Store.update(Store.current().id, x => { const q = x.policies.find(y => y.no === NO); q.sumInsured = nv; q.siReviewed = D(0); }); UI.convert(["N02", "N03", "N14"].filter(seen)); UI.toast("Sum insured increased — you're fully covered."); });
+    });
+  } else siEl.classList.add("hidden");
+
+  document.getElementById("documents").innerHTML = `
+    <div class="panel-head"><h3>Documents</h3></div>
+    ${[["e-Policy & schedule", "policy"], ["Policy wording", "wording"], ["Premium receipt", "receipt"]].map(([l, k]) => `<div class="garage"><span style="display:flex;gap:10px;align-items:center">${icon("file")} ${l}</span><button class="link small" data-doc="${k}">${icon("download", "xs")} View / download</button></div>`).join("")}`;
+  document.querySelectorAll("[data-doc]").forEach(b => b.onclick = () => openDoc(b.dataset.doc));
+
+  document.getElementById("side").innerHTML = `
+    <div class="summary-card">
+      <span class="cdh-tag" style="color:#7FE3E3">${icon(UI.lineIcon(p.line), "xs")} ${LINE_LABEL[p.line]} insurance</span>
+      <div class="total" style="margin:8px 0 14px"><span>Annual premium</span><b>${money(p.premium)}</b></div>
+      <div class="line"><span>${isLife ? (p.plan === "savings" ? "Matures on" : "Cover until") : lapsed ? "Expired on" : "Renews on"}</span><span>${fdate(p.end)}</span></div>
+      ${p.line === "auto" ? `<div class="line"><span>No-Claim Bonus</span><span>${p.ncb}%</span></div>` : ""}
+      <div class="line"><span>Payment</span><span>${p.frequency}</span></div>
+      <label class="check" id="autorenew" style="justify-content:space-between;color:#fff;margin-top:8px"><span>Auto-renewal</span><span class="toggle"><input type="checkbox" id="ar" ${p.autoRenew ? "checked" : ""} ${lapsed ? "disabled" : ""}><span></span></span></label>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <h4 style="margin:0 0 6px">Need help with this policy?</h4><p class="small muted">Talk to a specialist who can already see this policy.</p>
+      <button class="btn btn-dark btn-sm btn-block" id="help">${icon("phoneCall")} Request a callback</button>
+      ${!["Lapsed", "Cancelled"].includes(p.status) ? `<button class="link small" style="margin-top:14px;color:var(--muted)" id="cancel">Cancel this policy</button>` : ""}
+    </div>`;
+  document.getElementById("ar").onchange = e => { Store.update(c.id, x => { x.policies.find(y => y.no === NO).autoRenew = e.target.checked; }); if (e.target.checked) UI.convert(["N12"].filter(seen)); UI.toast(e.target.checked ? "Auto-renewal on — we'll renew on time at the best price." : "Auto-renewal off."); };
+  on("help", () => UI.callback(null, `Help with ${p.no}`));
+  on("cancel", cancelFlow);
+}
+
+function confirmPay(title, amount, done) {
+  const m = UI.modal(`<h3>${esc(title)}</h3><div class="summary-card" style="margin:14px 0"><div class="total" style="margin:0"><span>Amount payable</span><b>${money(amount)}</b></div></div>
+    <div class="opt-grid">${["GCash", "Card", "Online banking"].map((x, i) => `<label class="opt"><input type="radio" name="pm" ${i ? "" : "checked"}><div><b>${x}</b></div></label>`).join("")}</div>
+    <p class="xs muted">Demo: no real payment is taken.</p><button class="btn btn-primary btn-block" id="cp-ok">Pay ${money(amount)}</button>`);
+  m.querySelector("#cp-ok").onclick = () => {
+    const c = Store.current();
+    c.payments.unshift({ id: "PAY-" + Math.floor(10000 + Math.random() * 89999), policy: NO, due: D(0), amount: Math.round(amount), status: "Paid", paidOn: D(0), method: "GCash" });
+    Store.save(); UI.closeModal(); done();
+  };
+}
+
+function addAddon(name, price) {
+  confirmPay(`Add ${name}`, price, () => {
+    const c = Store.current();
+    Store.update(c.id, x => { const q = x.policies.find(y => y.no === NO); if (name === "Contents") { q.contents = 600000; q.addons.push("Contents"); } else q.addons.push(name); x.interactions.unshift({ date: D(0), channel: "Web", note: `Added ${name} to ${NO}` }); });
+    const map = { "Zero Depreciation": ["A02", "N01"], "Roadside Assistance": ["A15"], "Trip Cancellation": ["A06"], "Adventure Sports": ["A17"], "Baggage & Gadget": ["A18"], "Contents": ["A08", "E16"], "Natural Catastrophe": ["A20"] };
+    UI.convert((map[name] || []).filter(seen));
+    UI.toast(`${name} added to ${NO}.`);
+  });
+}
+
+function renew() {
+  const c = Store.current(), p = getP();
+  if (p.status === "Lapsed") return reinstate();
+  const nextNcb = p.line === "auto" ? NCB_LADDER[Math.min(NCB_LADDER.length - 1, NCB_LADDER.indexOf(p.ncb) + 1)] : 0;
+  const loyalty = p.line === "auto" && daysUntil(p.end) <= 45 ? .10 : daysUntil(p.end) > 30 ? .05 : 0;
+  const base = p.premium * 1.06;
+  const ncbSave = p.line === "auto" ? base * .55 * (nextNcb - p.ncb) / 100 : 0;
+  const total = (base - ncbSave) * (1 - loyalty);
+  const m = UI.modal(`<span class="ico-bubble" style="margin-bottom:12px">${icon("refresh")}</span><h3>Renew ${p.no}</h3>
+    <p class="muted small">New cover period: ${fdate(D(daysUntil(p.end) + 1))} – ${fdate(D(daysUntil(p.end) + 365))}. No inspection needed.</p>
+    <div class="summary-card" style="margin:14px 0">
+      <div class="line"><span>Renewal premium</span><span>${money(base)}</span></div>
+      ${ncbSave ? `<div class="line"><span>NCB upgrade ${p.ncb}% → ${nextNcb}%</span><span>−${money(ncbSave)}</span></div>` : ""}
+      ${loyalty ? `<div class="line"><span>${loyalty === .1 ? "Loyalty renewal discount" : "Early renewal discount"} (${loyalty * 100}%)</span><span>−${money((base - ncbSave) * loyalty)}</span></div>` : ""}
+      <div class="total"><span>Total</span><b>${money(total)}</b></div>
+    </div>
+    <label class="check"><input type="checkbox" id="rn-auto" ${p.autoRenew ? "checked" : ""}><span>Turn on auto-renewal for next year</span></label>
+    <button class="btn btn-primary btn-block" id="rn-ok">Pay ${money(total)} & renew</button>`);
+  m.querySelector("#rn-ok").onclick = () => {
+    const auto = m.querySelector("#rn-auto").checked;
+    Store.update(c.id, x => {
+      const q = x.policies.find(y => y.no === NO);
+      q.start = D(daysUntil(q.end) + 1); q.end = D(daysUntil(q.end) + 365); q.premium = Math.round(total); q.autoRenew = auto; q.status = "Active";
+      if (q.line === "auto") q.ncb = nextNcb;
+      x.payments.unshift({ id: "PAY-" + Math.floor(10000 + Math.random() * 89999), policy: q.no, due: D(0), amount: Math.round(total), status: "Paid", paidOn: D(0), method: "GCash" });
+      x.interactions.unshift({ date: D(0), channel: "Web", note: `Renewed ${q.no} for ${money(total)}` });
+      x.loyalty.points += 150;
+    });
+    Store.event(c.id, "conversion", `Renewal completed · ${NO} · ${money(total)}`);
+    UI.convert(["A03", "A13", "N11", "N25", "R06", "N26", ...(auto ? ["N12"] : [])].filter(seen));
+    UI.closeModal(); UI.toast("Renewed! Your new e-policy is ready. +150 reward points.");
+  };
+}
+
+function reinstate() {
+  const c = Store.current(), p = getP();
+  if (p.status !== "Lapsed") return;
+  const gap = -daysUntil(p.end), keepNcb = gap <= 90;
+  const total = p.premium * 1.06 * (1 - (keepNcb ? 0 : 0)) ;
+  const m = UI.modal(`<span class="ico-bubble" style="margin-bottom:12px">${icon("undo")}</span><h3>Reinstate ${p.no}</h3>
+    <div class="notice ${keepNcb ? "ok" : "warn"}" style="margin:10px 0">${icon("award")}<div>${keepNcb ? `Your policy lapsed ${gap} days ago — you're within 90 days, so your <b>${p.ncb}% No-Claim Bonus is protected</b> and no inspection is needed.` : "More than 90 days since lapse — NCB can no longer be carried forward and a vehicle inspection is required."}</div></div>
+    <div class="summary-card" style="margin:14px 0"><div class="line"><span>Cover</span><span>${fdate(D(0))} – ${fdate(D(364))}</span></div><div class="total"><span>Premium</span><b>${money(total)}</b></div></div>
+    <button class="btn btn-primary btn-block" id="ri-ok">Pay ${money(total)} & reinstate</button>`);
+  m.querySelector("#ri-ok").onclick = () => {
+    Store.update(c.id, x => {
+      const q = x.policies.find(y => y.no === NO);
+      q.status = "Active"; q.start = D(0); q.end = D(364); q.premium = Math.round(total); if (!keepNcb) q.ncb = 0;
+      x.payments.forEach(y => { if (y.policy === q.no && y.status === "Overdue") { y.status = "Paid"; y.paidOn = D(0); } });
+      x.interactions.unshift({ date: D(0), channel: "Web", note: `Reinstated ${q.no}` });
+      x.risk.lapseScore = Math.min(x.risk.lapseScore, .2);
+    });
+    Store.event(c.id, "conversion", `Policy reinstated · ${NO}`);
+    UI.convert(["R04", "R05", "R14", "N02", "R06", "E07"].filter(seen));
+    UI.closeModal(); UI.toast("Welcome back! Your cover is active again.");
+  };
+}
+
+/* L09 Policy Revival with Health Declaration (life policies lapsed within 5 years). */
+function revive() {
+  const c = Store.current(), p = getP();
+  if (!p || p.line !== "life" || p.status !== "Lapsed") return;
+  const months = Math.max(1, Math.round(-daysUntil(p.lapsedOn) / 30));
+  const missed = Math.ceil(months / 12) * p.premium, interest = Math.round(missed * .09 * months / 12), total = missed + interest;
+  const Q = ["Have you been hospitalised or diagnosed with a serious illness since the policy lapsed?", "Are you currently taking medication for a chronic condition (other than declared at purchase)?", "Have you started smoking or using tobacco since the policy started?"];
+  const m = UI.modal(`<span class="ico-bubble" style="margin-bottom:12px">${icon("refresh")}</span><h3>Revive ${p.no}</h3>
+    <p class="muted small">${esc(p.product)} · ${lakh(p.sumAssured)} cover · lapsed ${months} months ago. Revivals within 2 years need only this health declaration, with no medical tests, and keep your original premium rate.</p>
+    <h4 style="margin:14px 0 6px">Health declaration</h4>
+    ${Q.map((q, i) => `<div class="garage"><span class="small">${q}</span><span style="display:flex;gap:10px;flex:none"><label class="small"><input type="radio" name="hq${i}" value="no" checked> No</label><label class="small"><input type="radio" name="hq${i}" value="yes"> Yes</label></span></div>`).join("")}
+    <div class="summary-card" style="margin:14px 0"><div class="line"><span>Missed premiums</span><span>${money(missed)}</span></div><div class="line"><span>Revival interest (9% p.a.)</span><span>${money(interest)}</span></div><div class="total"><span>To revive</span><b>${money(total)}</b></div></div>
+    <label class="check"><input type="checkbox" id="rv-agree"><span>I declare the answers above are true and complete.</span></label>
+    <button class="btn btn-primary btn-block" id="rv-ok">Pay ${money(total)} & revive</button>`);
+  m.querySelector("#rv-ok").onclick = () => {
+    if (!m.querySelector("#rv-agree").checked) { UI.toast("Please confirm the health declaration."); return; }
+    const flagged = Q.some((_, i) => m.querySelector(`input[name=hq${i}]:checked`).value === "yes");
+    if (flagged) {
+      Store.handoff(c.id, `Revival underwriting — ${p.no}`, { intent: "Health declaration needs underwriter review", when: "Now (≈2 min)" });
+      UI.closeModal(); UI.toast("Thanks. An underwriter will call you to complete the revival; no payment taken yet."); return;
+    }
+    Store.update(c.id, x => {
+      const q = x.policies.find(y => y.no === NO);
+      q.status = "Active"; delete q.lapsedOn;
+      x.payments.unshift({ id: "PAY-" + Math.floor(10000 + Math.random() * 89999), policy: q.no, due: D(0), amount: total, status: "Paid", paidOn: D(0), method: "GCash" });
+      x.interactions.unshift({ date: D(0), channel: "Web", note: `Revived ${q.no} with health declaration` });
+    });
+    Store.event(c.id, "conversion", `Life policy revived · ${NO} · ${money(total)}`);
+    UI.convert(["L09"].filter(seen));
+    UI.closeModal(); UI.toast(`Revived. Your ${lakh(p.sumAssured)} life cover is back in force.`);
+  };
+}
+
+function cancelFlow() {
+  const c = Store.current(), p = getP();
+  const m = UI.modal(`<h3>Cancel ${p.no}?</h3><p class="muted small">Tell us why — it helps us improve.</p>
+    ${["Too expensive", "Found a cheaper quote elsewhere", "Sold my car / moved home", "Unhappy with a claim or service", "Other"].map((r, i) => `<label class="check"><input type="radio" name="why" value="${r}" ${i ? "" : "checked"}><span>${r}</span></label>`).join("")}
+    <button class="btn btn-dark btn-block" id="c-next" style="margin-top:12px">Continue</button>`);
+  m.querySelector("#c-next").onclick = () => {
+    const reason = m.querySelector("input[name=why]:checked").value;
+    Store.update(c.id, x => { x.signals.cancelIntent = { policy: p.no, reason, at: Date.now(), page: "policy.html" }; x.risk.lapseScore = Math.max(x.risk.lapseScore, .7); });
+    Store.event(c.id, "signal", `Cancellation intent detected · ${p.no} · ${reason} → agent desktop alerted`);
+    const m2 = UI.modal(`<span class="cdh-tag">${icon("cpu", "xs")} Before you go</span><h3 style="margin-top:6px">We'd hate to lose you, ${esc(c.first)}</h3>
+      <p class="muted small">Based on your reason (“${esc(reason)}”), here's what we can do right now:</p>
+      <div id="retention-nba"></div>
+      <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap"><button class="btn btn-primary" id="keep">Keep my policy</button><button class="btn btn-ghost" id="c-final">Continue to cancel</button></div>`);
+    UI.nba(document.getElementById("retention-nba"), { channel: "Web", context: "cancel", limit: 2, variant: "list" });
+    m2.querySelector("#keep").onclick = () => {
+      Store.update(c.id, x => { delete x.signals.cancelIntent; x.risk.lapseScore = .3; });
+      UI.convert(["R07"]); UI.closeModal(); UI.toast("Great — your policy stays active.");
+    };
+    m2.querySelector("#c-final").onclick = () => {
+      const refund = Math.max(0, Math.round(p.premium * daysUntil(p.end) / 365 * .85));
+      const m3 = UI.modal(`<h3>Confirm cancellation</h3><p class="muted small">Your cover ends immediately. Estimated refund (short-period scale): <b>${money(refund)}</b>, credited in 7 working days.</p>
+        <div class="notice warn">${icon("alert")}<div>${p.line === "auto" ? "Driving without valid third-party insurance is illegal." : "You'll no longer be protected."}</div></div>
+        <button class="btn btn-dark btn-block" style="margin-top:14px" id="c-yes">Cancel policy</button>`);
+      m3.querySelector("#c-yes").onclick = () => {
+        CDH.respond(c.id, "R07", "Rejected", "Web", "cancel");
+        Store.update(c.id, x => { const q = x.policies.find(y => y.no === NO); q.status = "Cancelled"; delete x.signals.cancelIntent; x.interactions.unshift({ date: D(0), channel: "Web", note: `Cancelled ${q.no} — ${reason}` }); });
+        UI.closeModal(); UI.toast("Policy cancelled. We're sorry to see you go.");
+      };
+    };
+  };
+}
+
+function openDoc(kind) {
+  const c = Store.current(), p = getP();
+  if (kind === "policy") { Store.update(c.id, x => { x.ePolicyDownloaded = true; }); UI.convert(["N07"].filter(seen)); }
+  const w = window.open("", "_blank");
+  if (!w) { UI.toast("Allow pop-ups to view the document."); return; }
+  const rows = (p.line === "auto" ? [["Vehicle", p.insured.vehicle], ["Registration", p.insured.reg], ["Market value insured", money(p.idv)], ["NCB", p.ncb + "%"]] : p.line === "property" ? [["Address", p.insured.address], ["Building SI", money(p.sumInsured)], ["Contents SI", money(p.contents)]] : [["Region", p.insured.region], ["Travellers", p.insured.travellers]])
+    .concat([["Add-ons", p.addons.join(", ") || "None"], ["Premium (incl. taxes)", money(p.premium)]]);
+  w.document.write(`<!doctype html><title>${p.no} — ${kind}</title><style>body{font-family:Inter,Arial,sans-serif;max-width:720px;margin:40px auto;color:#1E2A4A}h1{font-size:22px}table{width:100%;border-collapse:collapse}td{padding:8px;border-bottom:1px solid #ddd}td:first-child{color:#667;width:40%}.hd{display:flex;justify-content:space-between;border-bottom:3px solid #E5332A;padding-bottom:12px;margin-bottom:20px}</style>
+    <div class="hd"><b>Instellars Insurance Philippines, Inc. (demo)</b><span>${{ policy: "Policy Schedule", wording: "Policy Wording (extract)", receipt: "Premium Receipt" }[kind]}</span></div>
+    <h1>${esc(p.product)}</h1><table><tr><td>Policy number</td><td>${p.no}</td></tr><tr><td>Policyholder</td><td>${esc(c.name)}</td></tr><tr><td>Period</td><td>${fdate(p.start)} – ${fdate(p.end)}</td></tr>${rows.map(([k, v]) => `<tr><td>${k}</td><td>${esc(v)}</td></tr>`).join("")}</table>
+    <p style="font-size:12px;color:#889;margin-top:30px">Demonstration document generated by the Instellars CDH demo site. Not a valid insurance contract. Use your browser's Print → Save as PDF to keep a copy.</p>`);
+  w.document.close();
+}
+</script>
+</body>
+</html>

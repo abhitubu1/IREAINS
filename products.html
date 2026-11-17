@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Insurance Products | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="products" data-hero="dark">
+<header id="site-header"></header>
+<main id="main"></main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+  UI.init();
+  const line = UI.q("line");
+  const offer = UI.q("offer");
+  const main = document.getElementById("main");
+  const FAQ = {
+    auto: [["Is car insurance mandatory in the Philippines?", "CTPL (Compulsory Third Party Liability) is required by the LTO to register your car. Comprehensive cover also protects your own car against accidents, theft, fire and floods; add Acts of Nature for typhoons and earthquakes."],
+           ["What is Zero Depreciation?", "Normally the insurer deducts depreciation on replaced parts. With Zero Dep, you get the full cost of parts — most useful for cars under 5 years old."],
+           ["Can I transfer my No-Claim Bonus?", "Yes. Your NCB belongs to you, not the car or the insurer. Bring it over from any insurer within 90 days of expiry."]],
+    travel: [["Is travel insurance mandatory for Schengen visas?", "Yes — Schengen visas require medical cover of at least €30,000. All our plans meet this requirement."],
+             ["Are pre-existing conditions covered?", "Life-threatening emergencies arising from pre-existing conditions are covered up to a sub-limit on Plus and Elite plans."],
+             ["How does flight delay cash work?", "If your flight is delayed by more than 4 hours, we pay automatically — no claim form needed."]],
+    property: [["I rent my home — do I need insurance?", "Your landlord's policy covers the building, not your belongings. Our Renter plan covers your contents and liability."],
+               ["How do I choose the sum insured?", "Insure the building for its rebuild cost (not market value) and contents for their replacement value. Use our calculator."],
+               ["Are typhoons and floods covered?", "Yes, natural catastrophes are covered as standard. Natural Catastrophe+ increases limits and adds temporary accommodation."]],
+    life: [["How much life cover do I need?", "A common rule is 6 to 10 times your annual income, plus any outstanding loans. Our quote suggests an amount based on your age, income and housing loan."],
+           ["What's the difference between term and savings plans?", "Term pays your family a lump sum if you die during the term, for the lowest premium. Guaranteed Savings also pays a fixed amount at maturity, so premiums are higher."],
+           ["What happens if I miss a premium?", "You get a 31-day grace period. After that you can take a premium holiday, reduce your cover, or revive the policy within 5 years."]],
+  };
+
+  if (!PRODUCTS[line]) {
+    main.innerHTML = `
+      <section class="hero page-hero"><div class="wrap">
+        <div class="crumbs"><a href="index.html">Home</a> / Insurance</div>
+        <h1>Insurance for <span class="red">every part</span> of life</h1>
+        <p class="lead">Car, travel and home insurance — bought in minutes, managed in one app.</p>
+        ${offer ? `<div class="glass" style="padding:18px 22px;margin-top:24px;display:inline-flex;gap:14px;align-items:center"><span class="chip chip-red">${esc(offer)}</span><span style="color:#fff">Welcome offer applied: <b>20% off</b> your first policy. Choose a product to continue.</span></div>` : ""}
+      </div></section>
+      <section class="block"><div class="wrap"><div class="grid g4" id="cards"></div></div></section>
+      <section class="block soft" id="pet"><div class="wrap"><div class="sec-head"><div><span class="eyebrow">Recommended for you</span><h2 style="margin:0">Popular right now</h2></div></div><div id="nba"></div></div></section>`;
+    document.getElementById("cards").innerHTML = Object.values(PRODUCTS).map(p => `
+      <div class="card hover product-card">
+        <span class="ico-bubble ${{ auto: "", travel: "teal", property: "amber", life: "blue" }[p.line]}">${icon(p.icon, "ico-lg")}</span>
+        <h3>${p.name}</h3><p class="muted small">${p.tagline}</p>
+        <ul>${p.points.map(x => `<li>${icon("check")}${x}</li>`).join("")}</ul>
+        <div class="price">From ${p.from}</div>
+        <div style="display:flex;gap:10px"><a class="btn btn-primary btn-sm" href="quote.html?line=${p.line}${offer ? "&offer=" + offer : ""}">Get quote</a><a class="btn btn-ghost btn-sm" href="products.html?line=${p.line}">Details</a></div>
+      </div>`).join("");
+    UI.nba("nba", { channel: "Web", context: "products", limit: 3 });
+  } else {
+    const p = PRODUCTS[line];
+    Store.trackPage(line);
+    document.title = `${p.name} | Instellars Insurance`;
+    main.innerHTML = `
+      <section class="hero page-hero"><div class="wrap hero-grid">
+        <div>
+          <div class="crumbs"><a href="index.html">Home</a> / <a href="products.html">Insurance</a> / ${p.name}</div>
+          <h1>${p.heroTitle.replace(/(shows up|don't go to plan|everything you've built|on track)/, '<span class="red">$1</span>')}</h1>
+          <p class="lead">${p.tagline} Plans from <b style="color:#fff">${p.from}</b>.</p>
+          <div class="hero-actions"><a class="btn btn-primary" href="quote.html?line=${line}">Get ${p.name.toLowerCase()} quote</a><a class="btn btn-light" href="#plans">Compare plans</a></div>
+        </div>
+        <div class="glass" style="padding:28px">
+          ${p.points.map(x => `<div class="feature" style="margin-bottom:16px"><span class="ico-bubble" style="background:rgba(255,255,255,.08);color:#fff">${icon("check")}</span><div><h4 style="color:#fff">${x}</h4></div></div>`).join("")}
+        </div>
+      </div></section>
+
+      <section class="block tight soft"><div class="wrap"><div id="nba"></div></div></section>
+
+      <section class="block" id="plans"><div class="wrap">
+        <div class="sec-head"><div><span class="eyebrow">Plans</span><h2 style="margin:0">Choose your level of cover</h2></div></div>
+        <div class="grid g3">${p.plans.map(pl => `
+          <div class="card product-card" style="${pl.popular ? "border-color:var(--red);box-shadow:0 0 0 3px rgba(229,51,42,.08)" : ""}">
+            ${pl.popular ? '<span class="chip chip-red" style="align-self:flex-start">Most popular</span>' : ""}
+            <h3>${pl.name}</h3><p class="muted small">${pl.desc}</p>
+            <ul>${pl.features.map(f => `<li>${icon("check")}${f}</li>`).join("")}</ul>
+            <a class="btn ${pl.popular ? "btn-primary" : "btn-outline"} btn-sm" style="margin-top:auto" href="quote.html?line=${line}&plan=${pl.id}">Choose ${pl.name}</a>
+          </div>`).join("")}</div>
+      </div></section>
+
+      <section class="block soft"><div class="wrap">
+        <div class="sec-head"><div><span class="eyebrow">Add-ons</span><h2 style="margin:0">Tailor your protection</h2></div></div>
+        <div class="grid g3">${p.addons.map(a => `<div class="card"><span class="ico-bubble teal">${icon("shieldPlus")}</span><h3>${a.name}</h3><p class="muted small" style="margin:0">${a.desc}</p></div>`).join("")}</div>
+      </div></section>
+
+      <section class="block"><div class="wrap" style="max-width:860px">
+        <span class="eyebrow">FAQ</span><h2>Good questions</h2>
+        ${FAQ[line].map(([q, a]) => `<details class="card" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600">${q}</summary><p class="muted" style="margin:12px 0 0">${a}</p></details>`).join("")}
+      </div></section>`;
+    // Only this product's offers: its cross-sell journey or its product group (never a generic offer).
+    const ONLY = { auto: { journeys: ["J02"], groups: ["Auto Insurance"] }, travel: { journeys: ["J03"], groups: ["Travel Insurance"] }, property: { journeys: ["J04"], groups: ["Property Insurance"] }, life: { journeys: ["J17"], groups: ["Life Insurance"] } };
+    UI.nba("nba", { channel: "Web", context: "products", limit: 1, variant: "hero", only: ONLY[line] });
+  }
+</script>
+</body>
+</html>

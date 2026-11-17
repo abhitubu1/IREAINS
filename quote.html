@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Get a Quote | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="quote">
+<header id="site-header"></header>
+<main>
+  <section class="block tight" style="padding-top:40px">
+    <div class="wrap" id="quote-root"></div>
+  </section>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.init();
+const root = document.getElementById("quote-root");
+const CARS = {
+  "Toyota Vios 1.3 XLE": { idv: 860000, cc: "small" }, "Toyota Fortuner G": { idv: 1650000, cc: "large", fuel: "Diesel" }, "Mitsubishi Montero Sport GLS": { idv: 1650000, cc: "large", fuel: "Diesel" },
+  "Honda City 1.5 V": { idv: 1050000, cc: "mid" }, "Toyota Innova 2.8 E": { idv: 1450000, cc: "large", fuel: "Diesel" }, "Ford Ranger XLT": { idv: 1400000, cc: "large", fuel: "Diesel" },
+  "Nissan Navara VE": { idv: 1300000, cc: "large", fuel: "Diesel" }, "BYD Atto 3": { idv: 1800000, cc: "ev", fuel: "Electric" },
+};
+const RATE_BY_CITY = { metro: 42000, coastal: 36000, tier2: 32000 };   // ₱ rebuild cost per sqm
+const STEPS = { auto: ["Your car", "Previous policy", "Plan & add-ons", "Review & pay"], travel: ["Your trip", "Plan & add-ons", "Review & pay"], property: ["Your home", "Plan & add-ons", "Review & pay"], life: ["About you", "Your cover", "Plan & add-ons", "Review & pay"] };
+const LIFE_PRODUCT = { term: "iSecure Term Life", rop: "iSecure Term — Return of Premium", savings: "Guaranteed Savings Plan" };
+
+let q = null, purchased = false;
+
+function subjectIsNew() { const c = Store.current(); return !c || H.pols(c).length === 0; }
+function discount() {
+  const c = Store.current(), opts = [];
+  if (q.line === "life") return c && H.pols(c).length ? [0.05, "Existing customer discount (5%)"] : [0.03, "Online purchase discount (3%)"];
+  if (UI.q("winback") || (c && c.abandonedQuote && c.abandonedQuote.winback)) opts.push([0.12, "Welcome-back loyalty discount (12%)"]);
+  if (c && H.lines(c).length >= 1 && !H.has(c, q.line)) opts.push([0.15, "Multi-policy bundle discount (15%)"]);
+  if (subjectIsNew()) opts.push([0.20, "New customer welcome offer (20%)"]);
+  opts.sort((a, b) => b[0] - a[0]);
+  return opts[0] || [0, ""];
+}
+function price() {
+  const i = Object.assign({}, q.inputs, { plan: q.plan, addons: q.addons, discount: discount()[0] });
+  return RATING[q.line](i);
+}
+
+function init() {
+  const line = UI.q("line");
+  if (!STEPS[line]) return chooser();
+  Store.trackPage(line);
+  const c = Store.current();
+  const saved = (c ? c.abandonedQuote : Store.s.anonProfile.abandonedQuote);
+  if (UI.q("resume") && saved && saved.line === line) { q = JSON.parse(JSON.stringify(saved.state)); q.step = Math.min(q.step, STEPS[line].length - 1); render(); return; }
+  q = { line, step: 0, plan: UI.q("plan") || { auto: "comp", travel: "plus", property: "complete", life: "term" }[line], addons: [], inputs: {} };
+  if (line === "auto") {
+    const wb = UI.q("winback") && c && c.policies.find(p => p.no === UI.q("winback"));
+    const model = wb ? wb.insured.vehicle : UI.q("fuel") === "Electric" ? "BYD Atto 3" : "Toyota Vios 1.3 XLE";
+    const known = CARS[model] || { idv: wb ? wb.idv : 800000, cc: "mid" };
+    q.inputs = { model, year: wb ? wb.insured.year : 2022, idv: wb ? wb.idv : known.idv, cc: known.cc, city: "metro", reg: wb ? wb.insured.reg : "", ncb: wb ? wb.ncb : 0, claimed: "no", winback: wb ? wb.no : "" };
+    if (wb) q.addons = ["zd"];
+  } else if (line === "travel") {
+    q.inputs = { region: UI.q("region") || "Asia", dest: UI.q("dest") || "", depart: UI.q("depart") || D(14), nights: +(UI.q("nights") || 7), pax: +(UI.q("pax") || 1), age: c ? c.age : 35 };
+    if (UI.q("plan") === "annual") q.plan = "annual";
+  } else if (line === "life") {
+    const age = c ? c.age : 30;
+    const reinvest = UI.q("reinvest") && c && c.policies.find(p => p.no === UI.q("reinvest"));
+    q.inputs = { age, gender: (c && c.gender) || "M", smoker: "no", income: (c && c.income) || 1200000, liabilities: (c && c.liabilities) || 0,
+      sa: +UI.q("sa") || INSIGHTS.lifeNeed(c || { anonymous: true }), term: q.plan === "savings" ? 12 : Math.min(30, 85 - age), nominee: "",
+      reinvest: reinvest ? reinvest.no : "", topup: !!UI.q("topup") };
+    if (q.plan === "savings") q.inputs.sa = Math.max(500000, Math.round(q.inputs.sa / 1e5) * 1e5);
+  } else {
+    q.inputs = { tenure: "owner", city: c && /Cebu|Tacloban|Iloilo|Legazpi|Samar/.test(c.city) ? "coastal" : "metro", builtUp: 100, building: 100 * 42000, contents: 500000 };
+  }
+  render();
+}
+
+function chooser() {
+  root.innerHTML = `
+    <span class="eyebrow">Get a quote</span><h1 style="font-size:2.4rem">What would you like to protect?</h1>
+    <p class="muted">Instant quotes, no calls. ${subjectIsNew() ? "<b>New customers save 20%.</b>" : "<b>Bundle and save 15%.</b>"}</p>
+    <div class="grid g4" style="margin-top:28px">${Object.values(PRODUCTS).map(p => `
+      <a class="card hover" href="quote.html?line=${p.line}"><span class="ico-bubble ${{ auto: "", travel: "teal", property: "amber", life: "blue" }[p.line]}">${icon(p.icon, "ico-lg")}</span>
+      <h3>${p.name}</h3><p class="muted small">${p.tagline}</p><span class="link">Start quote ${icon("arrow")}</span></a>`).join("")}</div>
+    <div id="nba" style="margin-top:40px"></div>`;
+  UI.nba("nba", { channel: "Web", context: "quote", limit: 3 });
+}
+
+function stepper() {
+  return `<div class="stepper">${STEPS[q.line].map((s, i) => `<div class="st ${i === q.step ? "on" : i < q.step ? "done" : ""}"><i>${i < q.step ? "✓" : i + 1}</i>${s}</div>`).join("")}</div>`;
+}
+
+function field(label, k, type = "text", extra = "") {
+  return `<div class="field"><label>${label}</label><input data-k="${k}" type="${type}" value="${esc(q.inputs[k] ?? "")}" ${extra}></div>`;
+}
+function select(label, k, opts) {
+  return `<div class="field"><label>${label}</label><select data-k="${k}">${Object.entries(opts).map(([v, l]) => `<option value="${v}" ${String(q.inputs[k]) === String(v) ? "selected" : ""}>${l}</option>`).join("")}</select></div>`;
+}
+
+function stepHtml() {
+  const L = q.line, s = STEPS[L][q.step];
+  const P = PRODUCTS[L];
+  if (s === "Your car") return `
+    <h2>Tell us about your car</h2>
+    ${q.inputs.winback ? `<div class="notice ok" style="margin-bottom:16px">${icon("award")}<div><b>Welcome back!</b> We've pre-filled your ${esc(q.inputs.model)} details and kept your ${q.inputs.ncb}% No-Claim Bonus.</div></div>` : ""}
+    <div class="row2">${select("Make & model", "model", Object.fromEntries(Object.keys(CARS).map(k => [k, k])))}${select("Registration year", "year", Object.fromEntries([2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018].map(y => [y, y])))}</div>
+    <div class="row2">${select("City of registration", "city", { metro: "Metro city", tier2: "Other city" })}${field("Registration number (optional)", "reg", "text", 'placeholder="e.g. NEX 4471"')}</div>`;
+  if (s === "Previous policy") return `
+    <h2>Your previous policy</h2>
+    <div class="row2">${select("Did you make a claim last year?", "claimed", { no: "No claims", yes: "Yes, I claimed" })}${select("No-Claim Bonus on current policy", "ncb", { 0: "0% / new car", 20: "20%", 25: "25%", 35: "35%", 45: "45%", 50: "50%" })}</div>
+    <div class="notice info">${icon("info")}<div>Your NCB is a discount on own-damage premium for every claim-free year — up to 50%. It stays yours even when you switch insurer.</div></div>`;
+  if (s === "Your trip") return `
+    <h2>Where are you headed?</h2>
+    <div class="row2">${select("Region", "region", P.regions)}${field("Destination", "dest", "text", 'placeholder="e.g. Singapore"')}</div>
+    <div class="row3">${field("Departure date", "depart", "date", `min="${D(0)}"`)}${field("Nights", "nights", "number", 'min="1" max="180"')}${field("Travellers", "pax", "number", 'min="1" max="8"')}</div>
+    <div class="row2">${field("Age of eldest traveller", "age", "number", 'min="1" max="85"')}</div>`;
+  if (s === "About you") return `
+    <h2>Tell us about you</h2>
+    ${q.inputs.topup ? `<div class="notice info" style="margin-bottom:16px">${icon("layers")}<div><b>Topping up your cover.</b> This adds a new term plan alongside your existing policy.</div></div>` : ""}
+    <div class="row2">${field("Age", "age", "number", 'min="18" max="65"')}${select("Gender", "gender", { M: "Male", F: "Female" })}</div>
+    <div class="row2">${select("Do you smoke or use tobacco?", "smoker", { no: "No", yes: "Yes" })}${field("Annual income (₱)", "income", "number", 'min="100000" step="50000"')}</div>
+    <p class="small muted" id="life-hint"></p>`;
+  if (s === "Your cover") return `
+    <h2>How much cover do you need?</h2>
+    ${q.inputs.reinvest ? `<div class="notice ok" style="margin-bottom:16px">${icon("trophy")}<div><b>Reinvesting your maturity proceeds</b> from ${esc(q.inputs.reinvest)} into a Guaranteed Savings Plan.</div></div>` : ""}
+    <div class="field"><label>${q.plan === "savings" ? "Sum assured / maturity target" : "Life cover (sum assured)"}: <span id="sa-val">${lakh(q.inputs.sa)}</span></label>
+      <input type="range" data-k="sa" min="500000" max="50000000" step="500000" value="${q.inputs.sa}"><span class="hint" id="life-rec"></span></div>
+    <div class="row2">${select("Policy term", "term", Object.fromEntries([10, 12, 15, 20, 25, 30, 35, 40].filter(t => t + (+q.inputs.age) <= 85).map(t => [t, t + " years (to age " + (t + +q.inputs.age) + ")"])))}${field("Beneficiary name & relationship", "nominee", "text", 'placeholder="e.g. Liza Ramos (spouse)"')}</div>`;
+  if (s === "Your home") return `
+    <h2>Tell us about your home</h2>
+    <div class="opt-grid">${[["owner", "I own it", "Building + contents"], ["renter", "I rent it", "Contents only"]].map(([v, l, d]) => `<label class="opt"><input type="radio" name="tenure" value="${v}" ${q.inputs.tenure === v ? "checked" : ""}><div><b>${l}</b><span>${d}</span></div></label>`).join("")}</div>
+    <div class="row2">${select("City", "city", P.cities)}${field("Floor area (sqm)", "builtUp", "number", 'min="20"')}</div>
+    <div class="row2">${q.inputs.tenure === "owner" ? field("Building sum insured (rebuild cost, ₱)", "building", "number") : ""}${field("Contents value (₱)", "contents", "number")}</div>
+    <p class="small muted" id="rebuild-hint"></p>`;
+  if (s === "Plan & add-ons") {
+    const plans = L === "travel" ? [...P.plans, { id: "annual", name: "Annual Multi-Trip", desc: "Unlimited trips for 12 months", features: ["Every trip up to 45 days", "Plus-level benefits", "Best for 3+ trips a year"] }] : P.plans.filter(p => !(L === "property" && q.inputs.tenure === "renter" && p.id !== "renter") && !(L === "property" && q.inputs.tenure === "owner" && p.id === "renter"));
+    if (!plans.find(p => p.id === q.plan)) q.plan = plans[0].id;
+    return `
+      <h2>Choose your plan</h2>
+      <div class="plan-grid" style="grid-template-columns:repeat(${Math.min(plans.length, 4)},1fr)">${plans.map(p => {
+        const t = RATING[L](Object.assign({}, q.inputs, { plan: p.id, addons: [], discount: discount()[0] })).total;
+        return `<label class="plan">${p.popular ? '<span class="chip chip-red tag">Popular</span>' : ""}<input type="radio" name="plan" value="${p.id}" ${q.plan === p.id ? "checked" : ""}><h4>${p.name}</h4><div class="p">${money(t)}</div><div class="xs muted">${p.desc}</div><ul>${p.features.map(f => `<li>${f}</li>`).join("")}</ul></label>`;
+      }).join("")}</div>
+      ${L === "auto" && q.plan !== "tp" ? `<div class="field"><label>Market value insured: <span id="idv-val">${money(q.inputs.idv)}</span></label><input type="range" data-k="idv" min="${Math.round(CARS[q.inputs.model].idv * .85)}" max="${Math.round(CARS[q.inputs.model].idv * 1.15)}" step="5000" value="${q.inputs.idv}"><span class="hint">The most we'd pay if your car is stolen or a total loss; set close to its current market value.</span></div>` : ""}
+      <h3 style="margin-top:12px">Add-ons</h3>
+      ${P.addons.map(a => `<label class="check"><input type="checkbox" data-addon="${a.id}" ${q.addons.includes(a.id) ? "checked" : ""} ${(q.plan === "tp") ? "disabled" : ""}><div><b>${a.name}</b><div class="xs muted">${a.desc}</div></div></label>`).join("")}`;
+  }
+  // Review & pay
+  const c = Store.current();
+  return `
+    <h2>Review & pay</h2>
+    <div class="card" style="margin-bottom:18px"><dl class="kv">${reviewRows().map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl></div>
+    ${c ? `<div class="notice info" style="margin-bottom:18px">${icon("user")}<div>Policy will be issued to <b>${esc(c.name)}</b> (${esc(c.email)}).</div></div>`
+        : `<h3>Your details</h3><p class="small muted">Already a customer? <a class="link" href="login.html?next=${encodeURIComponent("quote.html?line=" + q.line + "&resume=1")}">Log in</a></p>
+           <div class="row2">${field("Full name", "name", "text", 'autocomplete="name"')}${field("Email", "email", "email", 'autocomplete="email"')}</div>
+           <div class="row2">${field("Mobile", "phone", "tel", 'autocomplete="tel"')}${field("Date of birth", "dob", "date")}</div>`}
+    <h3>Payment</h3>
+    <div class="opt-grid">${["GCash", "Card", "Online banking"].map((m, i) => `<label class="opt"><input type="radio" name="pay" value="${m}" ${i === 0 ? "checked" : ""}><div><b>${m}</b><span>${["GCash or Maya", "Visa, Mastercard, JCB", "BDO, BPI, Metrobank & more"][i]}</span></div></label>`).join("")}</div>
+    <label class="check"><input type="checkbox" id="agree"><span>I confirm the details are correct and agree to the policy wording and terms.</span></label>
+    <p class="xs muted">Demo: no real payment is taken.</p>`;
+}
+
+function reviewRows() {
+  const i = q.inputs, P = PRODUCTS[q.line], plan = planName();
+  const add = q.addons.map(a => P.addons.find(x => x.id === a).name).join(", ") || "None";
+  if (q.line === "auto") return [["Car", `${i.model} (${i.year})`], ["Registration", i.reg || "To be provided"], ["Plan", plan], ["Market value", money(i.idv)], ["No-Claim Bonus", (i.claimed === "yes" ? 0 : i.ncb) + "%"], ["Add-ons", add], ["Cover period", `${fdate(D(0))} – ${fdate(D(364))}`]];
+  if (q.line === "life") return [["Life assured", (Store.current() || {}).name || i.name || "You"], ["Age · tobacco", `${i.age} · ${i.smoker === "yes" ? "smoker" : "non-smoker"}`], ["Sum assured", lakh(i.sa)], ["Policy term", `${i.term} years`], ["Plan", plan], ["Riders", add], ["Beneficiary", i.nominee || "To be added"]];
+  if (q.line === "travel") return [["Trip", `${i.dest || P.regions[i.region]}`], ["Dates", q.plan === "annual" ? `${fdate(D(0))} – ${fdate(D(364))} (annual)` : `${fdate(i.depart)} · ${i.nights} nights`], ["Travellers", i.pax], ["Plan", plan], ["Add-ons", add]];
+  return [["Home", i.tenure === "owner" ? "Owned home" : "Rented home"], ["City", P.cities[i.city]], ["Building cover", i.tenure === "owner" ? money(i.building) : "—"], ["Contents cover", q.plan === "basic" ? "—" : money(i.contents)], ["Plan", plan], ["Add-ons", add]];
+}
+function planName() { return q.plan === "annual" ? "Annual Multi-Trip" : PRODUCTS[q.line].plans.find(p => p.id === q.plan).name; }
+
+function summaryHtml() {
+  const pr = price(), [d, dl] = discount();
+  return `
+    <div class="summary-card">
+      <span class="cdh-tag" style="color:#7FE3E3">${icon(PRODUCTS[q.line].icon, "xs")} ${PRODUCTS[q.line].name}</span>
+      <h3 style="margin-top:6px">${planName()}</h3>
+      ${pr.lines.filter(l => Math.abs(l[1]) >= 1).map(([k, v]) => `<div class="line"><span>${k}</span><span>${v < 0 ? "−" : ""}${money(Math.abs(v))}</span></div>`).join("")}
+      <div class="total"><span>Total premium</span><b>${money(pr.total)}</b></div>
+      ${dl ? `<div class="chip" style="margin-top:12px;background:rgba(0,180,180,.15);color:#7FE3E3;border-color:transparent">${icon("tag", "xs")} ${dl}</div>` : ""}
+      <p class="xs" style="color:rgba(255,255,255,.55);margin:14px 0 0">Price held for 7 days. Includes VAT and documentary stamp tax.</p>
+    </div>
+    <div class="card" style="margin-top:16px;padding:18px"><div class="feature"><span class="ico-bubble teal">${icon("shield")}</span><div><h4>Instant e-policy</h4><p>Your policy is issued the moment you pay — no inspection needed.</p></div></div></div>`;
+}
+
+function render() {
+  if (purchased) return;
+  const last = q.step === STEPS[q.line].length - 1;
+  root.innerHTML = `
+    <div class="crumbs" style="color:var(--muted)"><a href="quote.html">Get a quote</a> / ${PRODUCTS[q.line].name}</div>
+    ${stepper()}
+    <div class="layout-side">
+      <div class="card" style="padding:32px">
+        <div id="step">${stepHtml()}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:24px;gap:12px">
+          <button class="btn btn-ghost" id="back" ${q.step === 0 ? "style='visibility:hidden'" : ""}>Back</button>
+          <button class="btn btn-primary" id="next">${last ? `Pay ${money(price().total)}` : "Continue"} ${icon("arrow")}</button>
+        </div>
+      </div>
+      <div class="sticky" id="summary">${summaryHtml()}</div>
+    </div>`;
+  bind();
+  hint();
+}
+
+function lifeHint() {
+  if (q.line !== "life") return;
+  const need = INSIGHTS.lifeNeed({ age: +q.inputs.age, income: +q.inputs.income, liabilities: +q.inputs.liabilities || 0 });
+  const h = document.getElementById("life-hint"), r = document.getElementById("life-rec");
+  const txt = `Recommended cover for you: <b>${lakh(need)}</b> (income × ${+q.inputs.age < 35 ? 10 : +q.inputs.age < 45 ? 8 : +q.inputs.age < 55 ? 6 : 4}${q.inputs.liabilities ? " + " + lakh(q.inputs.liabilities) + " loans" : ""}).`;
+  if (h) h.innerHTML = txt;
+  if (r) r.innerHTML = q.plan === "savings" ? "Guaranteed maturity of about " + lakh(q.inputs.sa * 1.55) + " at the end of the term." : txt;
+}
+function hint() {
+  lifeHint();
+  const h = document.getElementById("rebuild-hint");
+  if (h) h.innerHTML = `Estimated rebuild cost for ${(+q.inputs.builtUp).toLocaleString("en-PH")} sqm in this city: <b>${money(q.inputs.builtUp * RATE_BY_CITY[q.inputs.city])}</b>. <a class="link" href="learn.html#calculator" target="_blank">How we calculate</a>`;
+}
+
+function refreshSummary() {
+  document.getElementById("summary").innerHTML = summaryHtml();
+  const nx = document.getElementById("next");
+  if (q.step === STEPS[q.line].length - 1) nx.innerHTML = `Pay ${money(price().total)} ${icon("arrow")}`;
+  const iv = document.getElementById("idv-val"); if (iv) iv.textContent = money(q.inputs.idv);
+  const sv = document.getElementById("sa-val"); if (sv) sv.textContent = lakh(q.inputs.sa);
+  hint();
+}
+
+function bind() {
+  root.querySelectorAll("[data-k]").forEach(el => el.addEventListener(el.tagName === "SELECT" ? "change" : "input", () => {
+    const k = el.dataset.k;
+    q.inputs[k] = el.type === "number" || el.type === "range" ? +el.value : el.value;
+    if (k === "model") { const m = CARS[el.value]; q.inputs.idv = m.idv; q.inputs.cc = m.cc; }
+    if (k === "claimed" && el.value === "yes") { q.inputs.ncb = 0; render(); return; }
+    if (k === "builtUp" || k === "city") { q.inputs.building = Math.round(q.inputs.builtUp * RATE_BY_CITY[q.inputs.city] / 10000) * 10000; const b = root.querySelector('[data-k="building"]'); if (b) b.value = q.inputs.building; }
+    refreshSummary();
+  }));
+  root.querySelectorAll("input[name=tenure]").forEach(r => r.onchange = () => { q.inputs.tenure = r.value; q.plan = r.value === "renter" ? "renter" : "complete"; render(); });
+  root.querySelectorAll("input[name=plan]").forEach(r => r.onchange = () => { q.plan = r.value; render(); });
+  root.querySelectorAll("[data-addon]").forEach(cb => cb.onchange = () => { const a = cb.dataset.addon; q.addons = cb.checked ? [...q.addons, a] : q.addons.filter(x => x !== a); refreshSummary(); });
+  document.getElementById("back").onclick = () => { q.step--; render(); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  document.getElementById("next").onclick = () => {
+    if (q.step < STEPS[q.line].length - 1) { q.step++; render(); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+    buy();
+  };
+}
+
+function buy() {
+  if (!document.getElementById("agree").checked) { UI.toast("Please confirm the declaration to continue."); return; }
+  let c = Store.current();
+  if (!c) {
+    const i = q.inputs;
+    if (!i.name || !i.email || !i.phone) { UI.toast("Please add your name, email and mobile."); return; }
+    const id = "CUST" + Math.floor(2000 + Math.random() * 7000);
+    Store.s.customers[id] = {
+      id, name: i.name.trim(), first: i.name.trim().split(" ")[0], age: i.dob ? yearsSince(i.dob) : 30, gender: "", city: q.line === "property" ? PRODUCTS.property.cities[q.inputs.city].split(" — ")[0] : "—",
+      email: i.email, phone: i.phone, segment: "New-to-Insurer", customerSince: D(0), dob: i.dob || "1995-01-01", persona: "Created via online purchase",
+      appActivated: false, ePolicyDownloaded: false, kyc: "Pending", paperless: false, autoPay: false, nomineeUpdated: false,
+      loyalty: { tier: "Blue", points: 100 }, wellness: { enrolled: false, stepsWeek: 0, goal: 70000, lastCheckup: null, trackerLinked: false },
+      risk: { lapseScore: .2, churnDrivers: [] }, signals: {}, affinity: {}, policies: [], claims: [], payments: [], interactions: [],
+    };
+    Store.login(id);
+    c = Store.current();
+  }
+  const pr = price(), i = q.inputs, yr = TODAY.getFullYear(), rnd = () => Math.floor(100000 + Math.random() * 899999);
+  const addonNames = q.addons.map(a => PRODUCTS[q.line].addons.find(x => x.id === a).name);
+  let pol;
+  if (q.line === "auto") {
+    if (q.plan === "plus") addonNames.push("Zero Depreciation", "Roadside Assistance");
+    pol = { no: `MOT-${yr}-${rnd()}`, line: "auto", product: "Private Car — " + planName(), insured: { vehicle: i.model, reg: i.reg || "Applied for", year: +i.year, fuel: CARS[i.model].fuel || "Gasoline" }, idv: i.idv, premium: Math.round(pr.total), start: D(0), end: D(364), status: "Active", ncb: i.claimed === "yes" ? 0 : +i.ncb, addons: ["Auto Personal Accident", ...addonNames], autoRenew: false, frequency: "Annual" };
+    if (i.winback) { const old = c.policies.find(p => p.no === i.winback); if (old) old.status = "Replaced"; }
+  } else if (q.line === "travel") {
+    const annual = q.plan === "annual";
+    const start = annual ? D(0) : i.depart; const end = annual ? D(364) : iso(new Date(parseDate(i.depart).getTime() + i.nights * 864e5));
+    if (q.plan === "elite") addonNames.push("Trip Cancellation", "Baggage & Gadget");
+    pol = { no: `TRV-${yr}-${rnd()}`, line: "travel", product: annual ? "Annual Multi-Trip — Plus" : `Single Trip — ${planName()}`, insured: { region: PRODUCTS.travel.regions[i.region], dest: i.dest, travellers: i.pax }, premium: Math.round(pr.total), start, end, status: "Active", addons: [...new Set(addonNames)], autoRenew: false, frequency: annual ? "Annual" : "Single" };
+  } else if (q.line === "life") {
+    pol = { no: `LIF-${yr}-${rnd()}`, line: "life", plan: q.plan, product: LIFE_PRODUCT[q.plan], insured: { life: c.name, nominee: i.nominee || "To be added" },
+      sumAssured: +i.sa, termYears: +i.term, ...(q.plan === "savings" ? { maturityValue: Math.round(i.sa * 1.55) } : {}), premium: Math.round(pr.total),
+      start: D(0), end: D(+i.term * 365), status: "Active", addons: addonNames, autoRenew: false, frequency: "Annual" };
+    if (i.reinvest) { const old = c.policies.find(p => p.no === i.reinvest); if (old) old.status = "Matured"; }
+    c.payments.unshift({ id: "PAY-" + Math.floor(10000 + Math.random() * 89999), policy: pol.no, due: D(365), amount: pol.premium, status: "Upcoming", method: "Renewal notice" });
+    if (!c.income) c.income = +i.income;
+  } else {
+    const cont = q.plan === "basic" ? 0 : +i.contents;
+    pol = { no: `HOM-${yr}-${rnd()}`, line: "property", product: "Home Shield — " + planName(), insured: { address: `${PRODUCTS.property.cities[i.city].split(" — ")[0]} home`, type: i.tenure === "owner" ? "Owned home" : "Apartment (rented)", builtUp: +i.builtUp, rebuildRate: RATE_BY_CITY[i.city] },
+      sumInsured: i.tenure === "owner" ? +i.building : 0, contents: cont, siReviewed: D(0), premium: Math.round(pr.total), start: D(0), end: D(364), status: "Active", addons: [...(cont ? ["Contents", "Burglary"] : []), ...addonNames], autoRenew: false, frequency: "Annual" };
+  }
+  c.policies.unshift(pol);
+  c.payments.unshift({ id: "PAY-" + Math.floor(10000 + Math.random() * 89999), policy: pol.no, due: D(0), amount: pol.premium, status: "Paid", paidOn: D(0), method: document.querySelector("input[name=pay]:checked").value });
+  c.interactions.unshift({ date: D(0), channel: "Web", note: `Purchased ${pol.product} (${pol.no})` });
+  c.abandonedQuote = null;
+  Store.log(c.id, "conversion", `Policy purchased · ${pol.no} · ${money(pol.premium)}`);
+  Store.save();
+  const related = { auto: ["A01", "A14"], travel: ["A04", "A05", "A16"], property: ["A07"], life: ["L01", "L02", "L11", "L04"] }[q.line].concat(["A09", "A10", "A11", "A12"]).concat(i.winback ? ["R04", "R05", "R14", "N02", "R06"] : []);
+  UI.convert(related.filter(a => Store.s.responses.some(r => r.cid === c.id && r.aid === a)));
+  purchased = true;
+  success(pol, c);
+}
+
+function success(pol, c) {
+  root.innerHTML = `
+    <div class="card" style="padding:40px;text-align:center;max-width:760px;margin:0 auto">
+      <span class="ico-bubble teal" style="margin:0 auto 16px;width:64px;height:64px">${icon("check", "ico-lg")}</span>
+      <h1 style="font-size:2rem">You're covered, ${esc(c.first)}!</h1>
+      <p class="muted">Policy <b>${pol.no}</b> — ${esc(pol.product)} is active from ${fdate(pol.start)}. We've emailed your e-policy to ${esc(c.email)}.</p>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:18px">
+        <a class="btn btn-primary" href="policy.html?no=${pol.no}#documents">${icon("download")} Download e-policy</a>
+        <a class="btn btn-outline" href="dashboard.html">Go to my dashboard</a>
+      </div>
+    </div>
+    <div style="max-width:980px;margin:36px auto 0"><span class="eyebrow">What's next</span><h2>Recommended for you</h2><div id="next-nba"></div></div>`;
+  UI.nba("next-nba", { channel: "Web", context: "dashboard", limit: 3 });
+  window.scrollTo({ top: 0 });
+}
+
+/* Abandonment → feeds "Abandoned Quote Retarget" (J13) on push/email and the homepage. */
+window.addEventListener("pagehide", () => {
+  if (!q || purchased || q.step < 1) return;
+  try { Store.saveAbandonedQuote({ line: q.line, premium: Math.round(price().total), ts: Date.now(), state: q, winback: !!q.inputs.winback }); } catch (e) { /* ignore */ }
+});
+
+init();
+</script>
+</body>
+</html>

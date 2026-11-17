@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Journeys & Next-Best-Actions | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+  <style>
+    .issue-col { border-radius: 18px; padding: 20px; background: #fff; border: 1px solid var(--line); }
+    .issue-col h3 { margin: 6px 0 2px; }
+    .grp { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: .88rem; }
+    .grp:last-child { border-bottom: 0; }
+    .mix { display: flex; height: 8px; border-radius: 99px; overflow: hidden; min-width: 120px; background: var(--bg-soft); }
+    .mix i { display: block; height: 100%; }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover td { background: #FAFBFD; }
+    tr.top td { background: #FFF6F5; }
+    .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+    .filters input, .filters select { padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; }
+    .bar-row { display: grid; grid-template-columns: 200px 1fr 70px; gap: 12px; align-items: center; font-size: .86rem; margin-bottom: 8px; }
+    @media (max-width: 720px) { .bar-row { grid-template-columns: 110px 1fr 50px; } }
+  </style>
+</head>
+<body data-page="journeys" data-hero="dark">
+<header id="site-header"></header>
+<main>
+  <section class="hero page-hero"><div class="wrap hero-grid">
+    <div>
+      <span class="chip chip-red" style="margin-bottom:18px">Pega CDH · Non-Life & Life Insurance · Individual</span>
+      <h1><span class="js-jn">17</span> journeys. <span class="js-an">96</span> actions. <span class="red">One decision.</span></h1>
+      <p class="lead">Every action is classified Business Issue → Group → Action. CDH arbitrates across all issues at once, putting service before sales.</p>
+    </div>
+    <div class="stat-grid">
+      <div class="glass stat"><b class="js-jn">17</b><span>Customer journeys</span></div>
+      <div class="glass stat"><b class="js-an">96</b><span>Actions (<span class="js-mvp">61</span> in MLP, <span class="js-life">11</span> life)</span></div>
+      <div class="glass stat"><b>4</b><span>Business issues</span></div>
+      <div class="glass stat"><b>6</b><span>Channels live</span></div>
+    </div>
+  </div></section>
+
+  <section class="block tight"><div class="wrap">
+    <div class="formula" style="margin-bottom:28px">ActionValue = Propensity(A,C) × BusinessValueWeight(A) × ContextWeight(C,Ch)<br>
+      <span style="color:#9AA6C8">Empathy-first: Engage / Service (100) › Nurture / Wellness (90) › Retain (85) › Acquire / Sales (70)</span></div>
+    <div class="tabs" id="tabs">
+      <button data-tab="designer" class="on">NBA Designer</button>
+      <button data-tab="journeys">Journeys</button>
+      <button data-tab="catalog">Action catalogue</button>
+      <button data-tab="sim">Arbitration simulator</button>
+      <button data-tab="perf">Response analytics</button>
+    </div>
+    <div id="tab-body"></div>
+  </div></section>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.init();
+const body = document.getElementById("tab-body");
+let tab = location.hash.replace("#", "") || "designer";
+const ISSUE_ORDER = ["Acquire", "Nurture", "Retain", "Engage"];
+document.querySelectorAll(".js-jn").forEach(e => e.textContent = JOURNEYS.length);
+document.querySelectorAll(".js-an").forEach(e => e.textContent = ACTIONS.length);
+document.querySelectorAll(".js-mvp").forEach(e => e.textContent = ACTIONS.filter(a => a.mvp).length);
+document.querySelectorAll(".js-life").forEach(e => e.textContent = ACTIONS.filter(a => a.life).length);
+const sim = { cid: Store.current() ? Store.current().id : "", channel: "Web", context: "" };
+
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { tab = b.dataset.tab; history.replaceState(null, "", "#" + tab); show(); });
+show();
+window.addEventListener("store:change", () => { if (tab === "sim" || tab === "perf") show(); });
+
+function show() {
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  ({ designer, journeys, catalog, sim: simulator, perf })[tab]();
+}
+
+function designer() {
+  body.innerHTML = `<div class="grid g4">${ISSUE_ORDER.map(k => {
+    const I = ISSUES[k], acts = ACTIONS.filter(a => a.issue === k);
+    const groups = [...new Set(acts.map(a => a.group))];
+    return `<div class="issue-col" style="border-top:4px solid ${I.color}">
+      <span class="badge ${I.badge}">BVW ${I.bvw}</span><h3>${I.label}</h3><div class="small muted">${I.group}</div>
+      <div style="font-family:var(--font-head);font-size:2rem;font-weight:700;margin:10px 0 2px">${acts.filter(a => a.mvp).length}<span class="muted" style="font-size:1rem"> / ${acts.length}</span></div><div class="xs muted" style="margin-bottom:10px">MVP / total actions</div>
+      ${groups.map(g => { const ga = acts.filter(a => a.group === g); return `<div class="grp"><span>${esc(g)}</span><b>${ga.filter(a => a.mvp).length}<span class="muted"> / ${ga.length}</span></b></div>`; }).join("")}
+    </div>`;
+  }).join("")}</div>
+  <div class="grid g3" style="margin-top:24px">
+    <div class="card"><span class="ico-bubble" data-icon="globe"></span><h3>Inbound</h3><p class="muted small">Mobile app + web. Real-time container calls on every page, with page context feeding the context weight.</p></div>
+    <div class="card"><span class="ico-bubble teal" data-icon="send"></span><h3>Outbound</h3><p class="muted small">WhatsApp, email and push, with contact policies (one message per action per channel per day, 7-day suppression after decline).</p><a class="link small" href="channels.html">Open outbound simulator →</a></div>
+    <div class="card"><span class="ico-bubble amber" data-icon="headset"></span><h3>Assisted</h3><p class="muted small">Call-centre CSR desktop with Next-Best-Action Advisor, fed by digital-to-call-centre handoffs.</p><a class="link small" href="agent.html" target="_blank">Open agent desktop →</a></div>
+  </div>`;
+  UI.icons(body);
+}
+
+function journeys() {
+  body.innerHTML = `<div class="table-wrap"><table class="t"><thead><tr><th>#</th><th>Customer journey</th><th class="num">MVP</th><th class="num">Post-MVP</th><th class="num">Total</th><th>Pillar mix</th><th></th></tr></thead><tbody>
+    ${JOURNEYS.map((j, i) => {
+      const acts = ACTIONS.filter(a => a.journey === j.id);
+      const mix = ISSUE_ORDER.map(k => [k, acts.filter(a => a.issue === k).length]).filter(x => x[1]);
+      return `<tr class="clickable" data-j="${j.id}"><td class="muted">${String(i + 1).padStart(2, "0")}</td><td><b>${esc(j.name)}</b><div class="xs muted">${esc(j.desc)}</div></td>
+        <td class="num">${acts.filter(a => a.mvp).length}</td><td class="num">${acts.filter(a => !a.mvp).length}</td><td class="num"><b>${acts.length}</b></td>
+        <td><div class="mix">${mix.map(([k, n]) => `<i title="${k}: ${n}" style="width:${n / acts.length * 100}%;background:${ISSUES[k].color}"></i>`).join("")}</div></td><td class="muted">${icon("chev", "xs")}</td></tr>
+        <tr class="hidden" id="jd-${j.id}"><td></td><td colspan="6"><div class="nba-meta" style="padding:6px 0">${acts.map(a => `<button class="chip" data-aid="${a.id}" style="cursor:pointer;${a.mvp ? "" : "opacity:.6"}"><span class="issue-dot" style="background:${ISSUES[a.issue].color}"></span>${esc(a.name)}${a.mvp ? "" : " · post-MVP"}</button>`).join("")}</div></td></tr>`;
+    }).join("")}
+    <tr><td></td><td><b>Total</b></td><td class="num"><b>${ACTIONS.filter(a => a.mvp).length}</b></td><td class="num"><b>${ACTIONS.filter(a => !a.mvp).length}</b></td><td class="num"><b>${ACTIONS.length}</b></td><td colspan="2"></td></tr></tbody></table></div>
+    <div class="nba-meta" style="margin-top:12px">${ISSUE_ORDER.map(k => `<span class="chip"><span class="issue-dot" style="background:${ISSUES[k].color}"></span>${k}</span>`).join("")}</div>`;
+  body.querySelectorAll("tr[data-j]").forEach(r => r.onclick = () => document.getElementById("jd-" + r.dataset.j).classList.toggle("hidden"));
+  body.querySelectorAll("[data-aid]").forEach(b => b.onclick = e => { e.stopPropagation(); traceFor(b.dataset.aid); });
+}
+
+function catalog() {
+  body.innerHTML = `<div class="filters">
+      <input id="f-q" placeholder="Search actions…" style="flex:1;min-width:180px">
+      <select id="f-i"><option value="">All issues</option>${ISSUE_ORDER.map(k => `<option>${k}</option>`).join("")}</select>
+      <select id="f-j"><option value="">All journeys</option>${JOURNEYS.map(j => `<option value="${j.id}">${esc(j.name)}</option>`).join("")}</select>
+      <select id="f-c"><option value="">All channels</option>${Object.entries(CHANNELS).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join("")}</select>
+      <select id="f-m"><option value="">MVP + post-MVP</option><option value="1">MVP only</option><option value="0">Post-MVP only</option></select>
+    </div><div id="cat"></div>`;
+  const draw = () => {
+    const f = id => document.getElementById(id).value;
+    const rows = ACTIONS.filter(a => (!f("f-q") || a.name.toLowerCase().includes(f("f-q").toLowerCase())) && (!f("f-i") || a.issue === f("f-i")) && (!f("f-j") || a.journey === f("f-j")) && (!f("f-c") || a.ch.includes(f("f-c"))) && (f("f-m") === "" || String(+a.mvp) === f("f-m")));
+    document.getElementById("cat").innerHTML = `<p class="small muted">${rows.length} actions</p><div class="table-wrap"><table class="t"><thead><tr><th>ID</th><th>Action</th><th>Issue · Group</th><th>Journey</th><th>Channels</th><th class="num">Prior P</th><th>Scope</th></tr></thead><tbody>
+      ${rows.map(a => `<tr class="clickable" data-aid="${a.id}"><td class="muted">${a.id}</td><td><b>${esc(a.name)}</b></td><td><span class="badge ${ISSUES[a.issue].badge}">${a.issue}</span> <span class="small muted">${esc(a.group)}</span></td><td class="small">${esc(JOURNEYS.find(j => j.id === a.journey).name)}</td><td class="small">${a.ch.map(c => CHANNELS[c].label).join(" + ")}</td><td class="num">${(a.p * 100).toFixed(1)}%</td><td>${a.mvp ? '<span class="badge b-green">MVP</span>' : '<span class="badge b-gray">Post-MVP</span>'}</td></tr>`).join("")}</tbody></table></div>`;
+    document.querySelectorAll("#cat [data-aid]").forEach(r => r.onclick = () => traceFor(r.dataset.aid));
+  };
+  body.querySelectorAll(".filters input, .filters select").forEach(el => el.addEventListener("input", draw));
+  draw();
+}
+
+function subjectFor(cid) {
+  if (!cid) return { id: Store.s.anonId, anonymous: true, first: "Visitor", name: "Anonymous visitor", policies: [], claims: [], payments: [], signals: {}, affinity: {}, abandonedQuote: Store.s.anonProfile.abandonedQuote };
+  return Store.customer(cid);
+}
+function traceFor(aid) {
+  const d = CDH.decide({ subject: subjectFor(sim.cid), channel: sim.channel, context: sim.context || null, limit: 3, includePostMVP: true });
+  UI.trace(d, aid);
+}
+
+function simulator() {
+  const st = Store.s.settings;
+  body.innerHTML = `<div class="filters">
+      <select id="s-c"><option value="">Anonymous visitor</option>${Store.allCustomers().map(c => `<option value="${c.id}" ${sim.cid === c.id ? "selected" : ""}>${esc(c.name)} — ${esc(c.persona)}</option>`).join("")}</select>
+      <select id="s-ch">${Object.entries(CHANNELS).map(([k, v]) => `<option value="${k}" ${sim.channel === k ? "selected" : ""}>${v.label} (${v.dir})</option>`).join("")}</select>
+      <select id="s-x"><option value="">No page context</option>${["home", "dashboard", "policy", "claims", "billing", "rewards", "learn", "products", "quote", "cancel"].map(x => `<option ${sim.context === x ? "selected" : ""}>${x}</option>`).join("")}</select>
+      <label class="check" style="padding:0 8px"><input type="checkbox" id="s-post" ${st.includePostMVP ? "checked" : ""}> Include post-MVP</label>
+      <label class="check" style="padding:0 8px"><input type="checkbox" id="s-emp" ${st.empathyGuardrail ? "checked" : ""}> Empathy guardrail</label>
+    </div><div id="sim-out"></div>`;
+  document.getElementById("s-c").onchange = e => { sim.cid = e.target.value; draw(); };
+  document.getElementById("s-ch").onchange = e => { sim.channel = e.target.value; draw(); };
+  document.getElementById("s-x").onchange = e => { sim.context = e.target.value; draw(); };
+  document.getElementById("s-post").onchange = e => { Store.s.settings.includePostMVP = e.target.checked; Store.save(); };
+  document.getElementById("s-emp").onchange = e => { Store.s.settings.empathyGuardrail = e.target.checked; Store.save(); };
+  function draw() {
+    const subj = subjectFor(sim.cid);
+    const d = CDH.decide({ subject: subj, channel: sim.channel, context: sim.context || null, limit: 3 });
+    const order = { Eligible: 0, Suppressed: 1, Ineligible: 2, Filtered: 3 };
+    const rows = [...d.all].sort((a, b) => order[a.status] - order[b.status] || (b.score || 0) - (a.score || 0));
+    const counts = Object.fromEntries(Object.keys(order).map(k => [k, d.all.filter(r => r.status === k).length]));
+    document.getElementById("sim-out").innerHTML = `
+      <div class="kpis" style="margin-bottom:18px">${Object.entries(counts).map(([k, n]) => `<div class="kpi"><span>${k}</span><b>${n}</b></div>`).join("")}</div>
+      ${d.top.length ? `<div class="grid g3" style="margin-bottom:18px">${d.top.map(r => { const t = CDH.treatment(r.action, subj); return `<div class="nba-card"><span class="cdh-tag">#${r.rank} · score ${r.score.toFixed(2)}</span><h4>${esc(t.h)}</h4><p>${esc(t.b)}</p><div class="nba-meta">${UI.metaChips(r.action)}</div></div>`; }).join("")}</div>` : ""}
+      <div class="table-wrap"><table class="t"><thead><tr><th>Rank</th><th>Action</th><th>Status</th><th class="num">Propensity</th><th class="num">BVW</th><th class="num">Context</th><th class="num">Score</th><th>Reason</th></tr></thead><tbody>
+      ${rows.map(r => `<tr class="clickable ${r.rank && r.rank <= 3 ? "top" : ""} ${r.status === "Filtered" ? "dim" : ""}" data-aid="${r.action.id}"><td>${r.rank ? "#" + r.rank : "—"}</td><td><b>${esc(r.action.name)}</b><div class="xs muted">${r.action.id} · ${r.action.issue} · ${esc(r.action.group)}</div></td>
+        <td>${{ Eligible: '<span class="badge b-green">Eligible</span>', Suppressed: '<span class="badge b-amber">Suppressed</span>', Ineligible: '<span class="badge b-gray">Ineligible</span>', Filtered: '<span class="badge b-gray">Filtered</span>' }[r.status]}</td>
+        <td class="num">${r.p != null ? (r.p * 100).toFixed(1) + "%" : ""}</td><td class="num">${r.bvw || ""}</td><td class="num">${r.cw != null ? r.cw.toFixed(2) : ""}</td><td class="num"><b>${r.score != null ? r.score.toFixed(2) : ""}</b></td><td class="xs muted">${esc(r.reason)}</td></tr>`).join("")}</tbody></table></div>`;
+    document.querySelectorAll("#sim-out [data-aid]").forEach(tr => tr.onclick = () => UI.trace(d, tr.dataset.aid));
+  }
+  draw();
+}
+
+function perf() {
+  const rs = Store.s.responses;
+  const agg = (key) => { const m = {}; rs.forEach(r => { const k = key(r); if (!k) return; m[k] = m[k] || { Impression: 0, Clicked: 0, Accepted: 0, Rejected: 0 }; m[k][r.outcome]++; }); return m; };
+  const byIssue = agg(r => ACTION_BY_ID[r.aid] && ACTION_BY_ID[r.aid].issue);
+  const byChannel = agg(r => r.channel);
+  const byAction = Object.entries(agg(r => r.aid)).sort((a, b) => (b[1].Accepted + b[1].Clicked) - (a[1].Accepted + a[1].Clicked)).slice(0, 10);
+  const tot = k => rs.filter(r => r.outcome === k).length;
+  const imp = tot("Impression") || 1;
+  const bars = (m, label) => Object.entries(m).map(([k, v]) => { const pos = v.Accepted + v.Clicked; const rate = v.Impression ? pos / v.Impression * 100 : 0; return `<div class="bar-row"><span>${esc(label(k))}</span><div class="meter"><i style="width:${Math.min(100, rate * 3)}%"></i></div><b>${rate.toFixed(1)}%</b></div>`; }).join("") || `<p class="muted small">No responses yet — browse the site as a persona to generate impressions and responses.</p>`;
+  body.innerHTML = `
+    <div class="kpis">${[["Impressions", tot("Impression")], ["Clicks", tot("Clicked")], ["Accepts", tot("Accepted")], ["Declines", tot("Rejected")]].map(([k, v]) => `<div class="kpi"><span>${k}</span><b>${v.toLocaleString("en-PH")}</b></div>`).join("")}</div>
+    <div class="grid g2">
+      <div class="panel"><div class="panel-head"><h3>Engagement rate by business issue</h3></div>${bars(byIssue, k => k)}</div>
+      <div class="panel"><div class="panel-head"><h3>Engagement rate by channel</h3></div>${bars(byChannel, k => (CHANNELS[k] || { label: k }).label)}</div>
+    </div>
+    <div class="panel"><div class="panel-head"><h3>Top actions</h3><span class="small muted">Overall click + accept rate ${((tot("Clicked") + tot("Accepted")) / imp * 100).toFixed(1)}%</span></div>
+      <div class="table-wrap"><table class="t"><thead><tr><th>Action</th><th class="num">Impressions</th><th class="num">Clicks</th><th class="num">Accepts</th><th class="num">Declines</th></tr></thead><tbody>
+      ${byAction.map(([aid, v]) => `<tr><td><b>${esc(ACTION_BY_ID[aid] ? ACTION_BY_ID[aid].name : aid)}</b></td><td class="num">${v.Impression}</td><td class="num">${v.Clicked}</td><td class="num">${v.Accepted}</td><td class="num">${v.Rejected}</td></tr>`).join("") || `<tr><td colspan="5" class="muted">No data yet</td></tr>`}</tbody></table></div></div>`;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claims | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="claims" data-hero="dark">
+<header id="site-header"></header>
+<main>
+  <section class="hero page-hero" style="padding:44px 0 48px"><div class="wrap" id="chead"></div></section>
+  <section class="block tight"><div class="wrap" id="cbody"></div></section>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.init();
+const head = document.getElementById("chead"), body = document.getElementById("cbody");
+const NO = UI.q("no");
+const STAGES = ["Registered", "Documents Pending", "Under Survey", "Approved", "Settled"];
+const INCIDENTS = {
+  auto: { "Accident / collision": ["LTO driver's license (both sides)", "Police report", "Vehicle photos"], "Theft": ["Police report", "Original keys (both)", "OR/CR (Official Receipt / Certificate of Registration)"], "Flood / natural calamity": ["Vehicle photos", "Driving licence (both sides)"], "Windscreen / glass": ["Photos of damage"] },
+  property: { "Water damage": ["Photos of damage", "Plumber / repair estimate"], "Fire": ["BFP fire incident report", "Photos of damage", "Repair estimate"], "Burglary / theft": ["Police report", "List of stolen items with bills"], "Storm / flood": ["Photos of damage", "Repair estimate"] },
+  life: { "Critical illness (rider)": ["Diagnosis report from specialist", "Hospital discharge summary"], "Accidental disability (rider)": ["Medical board certificate", "FIR / accident report"] },
+  travel: { "Medical emergency abroad": ["Hospital bills", "Discharge summary", "Passport copy"], "Baggage loss": ["Airline PIR report", "Boarding pass"], "Flight delay": ["Airline delay certificate", "Boarding pass"] },
+};
+const GARAGES = [["Toyota Cebu City, Mandaue", "2.1 km", "4.6"], ["Honda Cars Cebu, Banilad", "3.4 km", "4.5"], ["Mitsubishi Motors Cebu, Lahug", "4.8 km", "4.3"], ["Ford Cebu, Subangdaku", "6.0 km", "4.4"]];
+const seen = a => { const c = Store.current(); return c && Store.s.responses.some(r => r.cid === c.id && r.aid === a); };
+const getK = () => { const c = Store.current(); return c && c.claims.find(k => k.no === NO); };
+
+route();
+window.addEventListener("store:change", () => { if (NO && getK()) detail(true); });
+
+function route() {
+  const c = Store.current();
+  if (!c) {
+    head.innerHTML = `<h1>Claims made <span class="red">simple</span></h1><p class="lead">Report a claim 24×7 in minutes. We'll guide you at every step.</p>`;
+    body.innerHTML = `<div class="grid g3">
+      <div class="card"><span class="ico-bubble">${icon("user")}</span><h3>Log in to claim online</h3><p class="muted small">Track status, upload documents and get payouts faster.</p><a class="btn btn-primary btn-sm" href="login.html?next=claims.html%3Fnew%3D1">Log in</a></div>
+      <div class="card"><span class="ico-bubble teal">${icon("whatsapp")}</span><h3>Claim on WhatsApp</h3><p class="muted small">Message “CLAIM” to ${BRAND.whatsapp}. Share photos and we'll do the rest.</p></div>
+      <div class="card"><span class="ico-bubble amber">${icon("phoneCall")}</span><h3>Call us 24×7</h3><p class="muted small">Toll-free ${BRAND.helpline}. Towing and on-spot assistance anywhere in the Philippines.</p></div></div>`;
+    return;
+  }
+  if (UI.q("new")) return fnol();
+  if (NO && getK()) return detail();
+  list();
+}
+
+function list() {
+  const c = Store.current();
+  head.innerHTML = `<div class="crumbs"><a href="dashboard.html">My account</a> / Claims</div><div style="display:flex;justify-content:space-between;gap:20px;align-items:flex-end;flex-wrap:wrap"><div><h1>Your claims</h1><p class="lead" style="margin:0">Track progress, upload documents and see settlements.</p></div><a class="btn btn-primary" href="claims.html?new=1">File a new claim</a></div>`;
+  body.innerHTML = `<div class="layout-side"><div class="panel">${c.claims.map(k => `
+    <a class="policy-card" href="claims.html?no=${k.no}"><span class="ico-bubble blue">${icon("clipboard")}</span>
+      <div><h4>${esc(k.type)}</h4><div class="sub">${k.no} · ${k.policy} · filed ${fdate(k.date)}</div></div>
+      <div class="right">${UI.statusBadge(k.status)}<div class="muted" style="margin-top:4px">${k.status === "Settled" ? "Paid " + money(k.paid) : "Est. " + money(k.estimate)}</div></div></a>`).join("") || `<div class="nba-empty">You haven't made any claims.</div>`}</div>
+    <aside><div class="panel"><div class="panel-head"><h3>Helpful for you</h3></div><div id="nba"></div></div></aside></div>`;
+  UI.nba("nba", { channel: "Web", context: "claims", limit: 2, variant: "list" });
+}
+
+function fnol() {
+  const c = Store.current();
+  const pols = H.pols(c);
+  if (!pols.length) { head.innerHTML = `<h1>File a claim</h1>`; body.innerHTML = `<div class="nba-empty">You don't have an active policy to claim on.</div>`; return; }
+  const pre = UI.q("policy") && pols.find(p => p.no === UI.q("policy")) ? UI.q("policy") : pols[0].no;
+  head.innerHTML = `<div class="crumbs"><a href="claims.html">Claims</a> / New claim</div><h1>Tell us what happened</h1><p class="lead" style="margin:0">Takes about 3 minutes. We'll guide you through the rest.</p>`;
+  body.innerHTML = `<div class="layout-side"><div class="card" style="padding:32px">
+      <div class="field"><label>Policy</label><select id="f-pol">${pols.map(p => `<option value="${p.no}" ${p.no === pre ? "selected" : ""}>${esc(p.product)} · ${p.no}</option>`).join("")}</select></div>
+      <div class="field"><label>What happened?</label><div class="opt-grid" id="f-type"></div></div>
+      <div class="row2"><div class="field"><label>Date of incident</label><input type="date" id="f-date" value="${D(0)}" max="${D(0)}"></div><div class="field"><label>Where did it happen?</label><input id="f-loc" placeholder="Area, city"></div></div>
+      <div class="field"><label>Describe what happened</label><textarea id="f-desc" rows="3" placeholder="A few lines is enough"></textarea></div>
+      <div class="field"><label>Estimated loss (₱)</label><input type="number" id="f-amt" value="45000" min="0"></div>
+      <div id="f-extra"></div>
+      <button class="btn btn-primary" id="f-go">Submit claim ${icon("arrow")}</button>
+    </div>
+    <aside><div class="notice info">${icon("info")}<div><b>In an emergency?</b><br>Call ${BRAND.helpline} for towing or on-spot help. Make sure everyone is safe first.</div></div>
+      <div class="card" style="margin-top:16px"><h4 style="margin-top:0">What you'll need</h4><p class="small muted" id="f-docs"></p></div></aside></div>`;
+  const polSel = document.getElementById("f-pol");
+  const drawTypes = () => {
+    const p = pols.find(x => x.no === polSel.value);
+    const types = Object.keys(INCIDENTS[p.line]);
+    document.getElementById("f-type").innerHTML = types.map((t, i) => `<label class="opt"><input type="radio" name="ft" value="${t}" ${i ? "" : "checked"}><div><b>${t}</b></div></label>`).join("");
+    document.getElementById("f-extra").innerHTML = p.line === "auto" ? `<div class="field"><label>Repair preference</label><div class="opt-grid">
+        <label class="opt"><input type="radio" name="rp" value="cashless" checked><div><b>Accredited repair shop</b><span>We pay the shop directly</span></div></label>
+        <label class="opt"><input type="radio" name="rp" value="reimb"><div><b>Reimbursement</b><span>Pay & claim back</span></div></label></div></div>
+        <div class="field"><label>Accredited repair shop</label><select id="f-gar">${GARAGES.map(g => `<option>${g[0]}</option>`).join("")}</select></div>` : "";
+    const docsFor = () => INCIDENTS[p.line][document.querySelector("input[name=ft]:checked").value];
+    const upd = () => document.getElementById("f-docs").innerHTML = ["Claim form (auto-filled)", ...docsFor()].map(d => "• " + d).join("<br>");
+    document.querySelectorAll("input[name=ft]").forEach(r => r.onchange = upd); upd();
+  };
+  polSel.onchange = drawTypes; drawTypes();
+  document.getElementById("f-go").onclick = () => {
+    const p = pols.find(x => x.no === polSel.value);
+    const type = document.querySelector("input[name=ft]:checked").value;
+    const date = document.getElementById("f-date").value;
+    const cashless = p.line === "auto" && document.querySelector("input[name=rp]:checked").value === "cashless";
+    const no = "CLM-" + String(TODAY.getFullYear()).slice(2) + "-" + Math.floor(10000 + Math.random() * 89999);
+    // Fraud rule: claims within 15 days of inception, or from an unrecognised device, go for review.
+    const review = (parseDate(date) - parseDate(p.start)) / 864e5 < 15 || !!c.signals.newDevice;
+    const k = { no, policy: p.no, line: p.line, type, date, estimate: +document.getElementById("f-amt").value || 0, status: "Documents Pending", cashless, garage: cashless ? document.getElementById("f-gar").value : "",
+      docsPending: INCIDENTS[p.line][type].slice(), docsReceived: ["Claim form"], fraudCheck: review ? "Review" : "Clear", updated: D(0),
+      timeline: [{ d: D(0), t: `Claim registered via web${document.getElementById("f-loc").value ? " · " + document.getElementById("f-loc").value : ""}` }, ...(cashless ? [{ d: D(0), t: `Direct repair requested at ${document.getElementById("f-gar").value}` }] : [])] };
+    Store.update(c.id, x => { x.claims.unshift(k); x.interactions.unshift({ date: D(0), channel: "Web", note: `Filed claim ${no} (${type})` }); });
+    Store.event(c.id, "claim", `FNOL registered · ${no} · ${type}${review ? " · fraud model: review" : ""}`);
+    location.href = `claims.html?no=${no}`;
+  };
+}
+
+function detail(rerender) {
+  const c = Store.current(), k = getK();
+  const stageIdx = k.status === "Rejected" ? -1 : Math.max(0, STAGES.indexOf(k.status));
+  head.innerHTML = `<div class="crumbs"><a href="claims.html">Claims</a> / ${k.no}</div>
+    <div style="display:flex;justify-content:space-between;gap:20px;align-items:flex-end;flex-wrap:wrap"><div><div style="display:flex;gap:10px;margin-bottom:10px">${UI.statusBadge(k.status)}<span class="chip chip-dark">${k.no}</span></div>
+      <h1 style="margin-bottom:6px">${esc(k.type)}</h1><p class="lead" style="margin:0">Policy ${k.policy} · filed ${fdate(k.date)}</p></div>
+      <div class="glass" style="padding:16px 22px"><div style="color:rgba(255,255,255,.6);font-size:.8rem">${k.status === "Settled" ? "Amount paid" : k.line === "life" ? "Claim amount" : "Estimated loss"}</div><div style="font-family:var(--font-head);font-size:1.8rem;font-weight:700">${money(k.status === "Settled" ? k.paid : k.estimate)}</div></div></div>`;
+  body.innerHTML = `<div class="layout-side"><div>
+      ${k.line === "life" && k.nominee ? bereavementPanel(k, c) : ""}
+      ${k.fraudCheck === "Review" && k.status !== "Rejected" ? `<div class="notice danger" id="verify" style="margin-bottom:20px">${icon("shieldAlert")}<div style="flex:1"><b>Did you file this claim?</b><br>This claim was registered ${k.date === D(0) ? "today" : "on " + fdate(k.date)}${c.signals.newDevice ? " from a device we don't recognise" : " shortly after the policy started"}. Please confirm so we can keep processing it.
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-dark btn-xs" id="v-yes">Yes, it was me</button><button class="btn btn-ghost btn-xs" id="v-no">No — report fraud</button></div></div></div>` : ""}
+      ${k.status === "Rejected" ? `<div class="notice danger" style="margin-bottom:20px">${icon("alert")}<div><b>Claim closed.</b> ${esc(k.rejectReason || "")}</div></div>` : ""}
+      <div class="panel"><div class="panel-head"><h3>Progress</h3><span class="small muted">Updated ${fdate(k.updated || k.date)}</span></div>
+        <div class="stepper">${STAGES.map((s, i) => `<div class="st ${i === stageIdx ? "on" : i < stageIdx ? "done" : ""}"><i>${i < stageIdx ? "✓" : i + 1}</i>${s}</div>`).join("")}</div>
+        <p class="small"><b>What's next:</b> ${esc(INSIGHTS.claimNext(k))}</p>
+        <ul class="timeline">${[...k.timeline].reverse().map((t, i) => `<li class="${i ? "done" : "now"}"><i></i><b style="font-weight:500">${esc(t.t)}</b><span>${fdate(t.d)}</span></li>`).join("")}</ul></div>
+      <div class="panel" id="documents"><div class="panel-head"><h3>Documents</h3><span class="small muted">${k.docsReceived.length} received · ${k.docsPending.length} pending</span></div>
+        ${k.docsPending.map(d => `<div class="upload"><span style="display:flex;gap:10px;align-items:center">${icon("file")} ${esc(d)}</span><label class="btn btn-dark btn-xs" style="cursor:pointer">${icon("upload", "xs")} Upload<input type="file" hidden data-doc="${esc(d)}" accept="image/*,.pdf"></label></div>`).join("")}
+        ${k.docsReceived.map(d => `<div class="upload done"><span style="display:flex;gap:10px;align-items:center">${icon("check")} ${esc(d)}</span><span class="badge b-green">Received</span></div>`).join("")}</div>
+      ${k.cashless ? `<div class="panel" id="garages"><div class="panel-head"><h3>Direct-to-shop repair</h3><span class="badge b-teal">Accredited shop</span></div>
+        <div class="notice ok" style="margin-bottom:12px">${icon("wrench")}<div>Your car is at <b>${esc(k.garage)}</b>. We settle directly with the garage — you only pay the participation fee (₱2,000) and anything not covered.</div></div>
+        <ol class="small muted" style="padding-left:18px"><li>Adjuster inspects the car (within 24h of documents)</li><li>We approve the repair estimate online</li><li>Garage repairs; you get photo updates on WhatsApp</li><li>Sign the satisfaction note and drive away</li></ol>
+        <h4>Other accredited repair shops near you</h4>${GARAGES.map(g => `<div class="garage"><span>${esc(g[0])}</span><span class="muted">${g[1]} · ★ ${g[2]}</span></div>`).join("")}</div>` : ""}
+      ${k.status === "Settled" ? `<div class="panel" id="statement"><div class="panel-head"><h3>Settlement statement</h3></div>
+        <div class="table-wrap"><table class="t"><tbody>
+          <tr><td>Assessed loss</td><td class="num">${money(k.estimate)}</td></tr>
+          ${k.notCovered ? `<tr><td>Not covered (${esc(k.notCoveredReason)})</td><td class="num">−${money(k.notCovered)}</td></tr>` : ""}
+          ${k.line === "life" ? "" : `<tr><td>Participation fee</td><td class="num">−${money(k.estimate - (k.notCovered || 0) - k.paid)}</td></tr>`}
+          <tr><td><b>Paid on ${fdate(k.settledOn)}</b></td><td class="num"><b>${money(k.paid)}</b></td></tr></tbody></table></div>
+        <p class="xs muted" style="margin-top:12px">If you're unhappy with the settlement, you may raise a complaint with our Customer Care Officer within 30 days, and thereafter with the Insurance Commission (Public Assistance and Mediation Division). Reference: ${k.no}.</p></div>
+      <div class="panel" id="feedback"><div class="panel-head"><h3>How did we do?</h3></div>${k.rating ? `<p>You rated us ${"★".repeat(k.rating)}${"☆".repeat(5 - k.rating)} — thank you.</p>` : `
+        <div id="stars" style="font-size:2rem;cursor:pointer;color:#F5A623;letter-spacing:4px">${[1, 2, 3, 4, 5].map(i => `<span data-star="${i}">☆</span>`).join("")}</div>
+        <div class="field" style="margin-top:10px"><textarea id="fb" rows="2" placeholder="Anything we could do better?"></textarea></div><button class="btn btn-dark btn-sm" id="fb-go">Send feedback</button>`}</div>` : ""}
+      <div class="card" style="border-style:dashed"><span class="cdh-tag">${icon("cpu", "xs")} Demo controls</span><p class="small muted" style="margin:6px 0 10px">Advance the claim to see how Next-Best-Actions change after each stage.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-xs" id="d-survey" ${k.status === "Under Survey" ? "" : "disabled"}>Adjuster approves</button>
+          <button class="btn btn-ghost btn-xs" id="d-settle" ${["Approved", "Under Survey"].includes(k.status) ? "" : "disabled"}>${k.line === "life" ? "Approve & pay claim" : "Repair done & settle"}</button></div></div>
+    </div>
+    <aside>
+      <div class="panel"><div class="panel-head"><h3>Claim summary</h3></div><dl class="kv"><dt>Policy</dt><dd>${k.policy}</dd><dt>Incident</dt><dd>${fdate(k.date)}</dd><dt>${k.line === "life" ? "Payout" : "Repair"}</dt><dd>${k.line === "life" ? "Bank transfer to beneficiary" : k.cashless ? "Direct to repair shop" : "Reimbursement"}</dd><dt>Fraud check</dt><dd>${k.fraudCheck === "Review" ? '<span class="badge b-amber">Under review</span>' : '<span class="badge b-green">Clear</span>'}</dd></dl>
+        <button class="btn btn-dark btn-sm btn-block" style="margin-top:16px" id="help">${icon("phoneCall")} Talk to my claims handler</button></div>
+      <div class="panel"><div class="panel-head"><h3>For you</h3></div><div id="nba"></div></div>
+    </aside></div>`;
+  UI.nba("nba", { channel: "Web", context: "claims", limit: 2, variant: "list" });
+  bindDetail(k);
+  if (!rerender) {
+    if (location.hash === "#garages") UI.convert(["E02"]);
+    if (location.hash === "#statement") UI.convert(["E14"]);
+    if (location.hash) setTimeout(() => { const el = document.querySelector(location.hash); if (el) el.scrollIntoView({ behavior: "smooth" }); }, 300);
+  }
+}
+
+function mutate(fn, evt) { const c = Store.current(); Store.update(c.id, x => { const k = x.claims.find(y => y.no === NO); fn(k, x); k.updated = D(0); }); if (evt) Store.event(c.id, "claim", evt); }
+
+function bindDetail(k) {
+  const c = Store.current();
+  const on = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = fn; };
+  document.querySelectorAll("input[data-doc]").forEach(inp => inp.onchange = () => {
+    if (!inp.files.length) return;
+    const d = inp.dataset.doc;
+    mutate(x => {
+      x.docsPending = x.docsPending.filter(y => y !== d); x.docsReceived.push(d);
+      x.timeline.push({ d: D(0), t: `Uploaded: ${d}` });
+      if (!x.docsPending.length && x.status === "Documents Pending") { x.status = "Under Survey"; x.timeline.push({ d: D(0), t: "All documents received — adjuster assigned" }); }
+    }, `Document uploaded · ${NO} · ${d}`);
+    if (!getK().docsPending.length) UI.convert(["E03"].filter(seen));
+    UI.toast(`${d} uploaded.`);
+  });
+  on("v-yes", () => {
+    const m = UI.modal(`<h3>Confirm it's you</h3><p class="muted small">Enter the code sent to your registered mobile. Demo code: 123456.</p><div class="field"><input id="otp" maxlength="6" inputmode="numeric"></div><button class="btn btn-primary btn-block" id="ok">Verify</button>`);
+    m.querySelector("#ok").onclick = () => {
+      if (m.querySelector("#otp").value !== "123456") { UI.toast("Incorrect code (demo: 123456)"); return; }
+      mutate((x, cu) => { x.fraudCheck = "Clear"; x.timeline.push({ d: D(0), t: "Identity verified by policyholder" }); cu.signals.newDevice = false; }, `Claim ${NO} verified by customer`);
+      UI.convert(["E04", "E05", "E19"].filter(seen)); UI.closeModal(); UI.toast("Thanks — your claim is back on track.");
+    };
+  });
+  on("v-no", () => {
+    mutate((x, cu) => { x.status = "Rejected"; x.rejectReason = "Reported as not filed by the policyholder — referred to our Special Investigation Unit. Your policy is safe."; x.fraudCheck = "Fraud"; x.timeline.push({ d: D(0), t: "Customer reported claim as fraudulent — SIU referral" }); cu.signals.newDevice = false; }, `Fraud reported by customer · ${NO}`);
+    UI.convert(["E04"].filter(seen)); UI.toast("Thank you. We've blocked this claim and secured your account.");
+  });
+  on("d-survey", () => mutate(x => { x.status = "Approved"; x.timeline.push({ d: D(0), t: `Adjuster approved repair estimate of ${money(x.estimate * .95)}` }); }, `Claim approved · ${NO}`));
+  on("d-settle", () => mutate((x, cu) => {
+    const pol = cu.policies.find(p => p.no === x.policy);
+    const zd = pol && H.hasAddon(pol, "Zero Dep");
+    x.notCovered = x.line === "auto" && !zd ? Math.round(x.estimate * .18) : 0;
+    x.notCoveredReason = x.line === "auto" ? "depreciation on plastic & rubber parts" : "";
+    x.fixAddon = "Zero Depreciation"; x.fixPrice = pol && pol.idv ? money(pol.idv * .0042 * 1.18) + "/yr" : "";
+    x.paid = Math.round(x.estimate - x.notCovered - (x.line === "life" ? 0 : 2000));
+    x.status = "Settled"; x.settledOn = D(0); x.docsPending = [];
+    x.timeline.push({ d: D(0), t: `${money(x.paid)} ${x.cashless ? "paid to " + x.garage : "transferred to your bank"}` });
+  }, `Claim settled · ${NO}`));
+  on("help", () => { Store.update(c.id, x => { x.signals.helpNeeded = true; }); UI.callback(null, `Claim ${k.no} — ${k.status}`); });
+  let rating = 0;
+  document.querySelectorAll("[data-star]").forEach(s => s.onclick = () => { rating = +s.dataset.star; document.querySelectorAll("[data-star]").forEach(x => x.textContent = +x.dataset.star <= rating ? "★" : "☆"); });
+  on("fb-go", () => {
+    if (!rating) { UI.toast("Tap a star rating first."); return; }
+    mutate(x => { x.rating = rating; x.feedback = document.getElementById("fb").value; }, `Claim feedback · ${NO} · ${rating}★`);
+    UI.convert(["E15", "E17"].filter(seen));
+    if (rating <= 2) { Store.handoff(c.id, `Service recovery — ${rating}★ claim feedback`, { intent: `Detractor after claim ${NO}`, when: "Now (≈2 min)" }); UI.toast("We're sorry. A senior claims specialist will call you within 2 hours."); }
+    else UI.toast("Thank you for your feedback!");
+  });
+}
+
+/* L10 Nominee Bereavement Support — a gentler claim experience for nominees. */
+function bereavementPanel(k, c) {
+  const b = c.signals.bereavement || { guide: "your claims guide", deceased: "the policyholder" };
+  setTimeout(() => {
+    const btn = document.getElementById("collect"); if (!btn) return;
+    btn.onclick = () => {
+      mutate(x => { x.timeline.push({ d: D(0), t: "Home document collection booked by beneficiary" }); x.collectBooked = true; }, `Home document collection booked · ${k.no}`);
+      UI.convert(["L10"].filter(seen));
+      UI.toast(`${b.guide} will call to confirm a time. You don't need to post anything.`);
+    };
+    const cb = document.getElementById("guide-call"); if (cb) cb.onclick = () => UI.callback("L10", `Bereavement support — ${k.no}`);
+  }, 0);
+  return `<div class="panel" id="support" style="background:#F6F8FF;border-color:#D9E1FF">
+    <div class="panel-head"><h3>We're here to help, ${esc(c.first)}</h3><span class="badge b-blue">Priority claim</span></div>
+    <p class="small" style="margin-top:0">We're very sorry for the loss of ${esc(b.deceased)}. Your claim is handled personally by <b>${esc(b.guide)}</b>, your dedicated claims guide, so you won't need to explain anything twice.</p>
+    <div class="garage"><span>Claim amount</span><b>${money(k.estimate)}</b></div>
+    <div class="garage"><span>Typical settlement</span><b>Within 7 working days of the last document</b></div>
+    <div class="garage"><span>Premiums on your own policies</span><b>We can pause them for 3 months if that helps</b></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+      ${k.docsPending.length && !k.collectBooked ? `<button class="btn btn-primary btn-sm" id="collect">${icon("home")} Collect documents from my home</button>` : k.collectBooked ? `<span class="badge b-green">Home collection booked</span>` : ""}
+      <button class="btn btn-ghost btn-sm" id="guide-call">${icon("phoneCall")} Call ${esc(b.guide)}</button>
+    </div></div>`;
+}
+</script>
+</body>
+</html>

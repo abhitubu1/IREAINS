@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My Account | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="dashboard" data-hero="dark">
+<header id="site-header"></header>
+<main>
+  <section class="dash-head"><div class="wrap" id="dash-head"></div></section>
+  <div class="wrap dash-body">
+    <div class="kpis" id="kpis"></div>
+    <div class="dash-grid">
+      <div>
+        <div class="panel"><div class="panel-head"><h3>For you right now</h3><span class="cdh-tag">Real-time next best action</span></div><div id="dash-nba"></div></div>
+        <div class="panel"><div class="panel-head"><h3>My policies</h3><a class="btn btn-ghost btn-sm" href="quote.html">+ Add a policy</a></div><div id="policies"></div></div>
+        <div class="panel"><div class="panel-head"><h3>Claims</h3><a class="btn btn-ghost btn-sm" href="claims.html?new=1">File a claim</a></div><div id="claims"></div></div>
+        <div class="panel"><div class="panel-head"><h3>Payments & renewals</h3><a class="link small" href="payments.html">All payments →</a></div><div id="payments"></div></div>
+      </div>
+      <aside>
+        <div class="panel" id="health"></div>
+        <div class="panel" id="profile"></div>
+        <div class="panel"><div class="panel-head"><h3>Recent activity</h3></div><div id="activity"></div></div>
+      </aside>
+    </div>
+  </div>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.init();
+if (UI.requireLogin()) {
+  UI.nba("dash-nba", { channel: "Web", context: "dashboard", limit: 3, variant: "heroTiles" });
+  render();
+  window.addEventListener("store:change", render);
+  if (UI.q("activate") === "app") activateApp();
+  if (UI.q("chat")) { UI.toast("Stella: Hi! Ask me anything about your cover, claims or renewals. 👋"); UI.convert(["N21"]); }
+  if (location.hash === "#health") setTimeout(runHealthCheck, 300);
+}
+
+function render() {
+  const c = Store.current(); if (!c) return;
+  const hr = new Date().getHours();
+  const greet = hr < 12 ? "Good morning" : hr < 17 ? "Good afternoon" : "Good evening";
+  document.getElementById("dash-head").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap">
+      <div><span class="chip chip-dark" style="margin-bottom:12px">${esc(c.segment)} · ${esc(CDH.displayId(c))}</span>
+        <h1>${greet}, ${esc(c.first)}</h1>
+        <p>Customer since ${fdate(c.customerSince)} · ${esc(c.loyalty.tier)} member · ${esc(c.city)}</p></div>
+      <div style="display:flex;gap:10px"><a class="btn btn-light btn-sm" href="claims.html?new=1">${icon("clipboard")} File a claim</a><a class="btn btn-primary btn-sm" href="payments.html">${icon("card")} Pay / renew</a></div>
+    </div>`;
+
+  const cover = H.pols(c).reduce((s, p) => s + (p.idv || 0) + (p.sumInsured || 0) + (p.contents || 0) + (p.sumAssured || 0), 0);   // incl. life sum assured
+  const score = INSIGHTS.healthScore(c);
+  document.getElementById("kpis").innerHTML = `
+    <div class="kpi"><span>${icon("shield", "xs")} Active policies</span><b>${H.pols(c).length}</b></div>
+    <div class="kpi"><span>${icon("layers", "xs")} Total cover</span><b>${cover ? lakh(cover) : "—"}</b></div>
+    <div class="kpi"><span>${icon("gift", "xs")} Reward points</span><b>${c.loyalty.points.toLocaleString("en-PH")}</b></div>
+    <div class="kpi"><span>${icon("heart", "xs")} Policy health</span><b style="color:${score >= 80 ? "var(--green)" : score >= 60 ? "var(--amber)" : "var(--red)"}">${score}/100</b></div>`;
+
+  document.getElementById("policies").innerHTML = c.policies.filter(p => p.status !== "Replaced").map(p => `
+    <a class="policy-card" href="policy.html?no=${p.no}">
+      <span class="ico-bubble ${{ auto: "", travel: "teal", property: "amber" }[p.line]}">${icon(UI.lineIcon(p.line))}</span>
+      <div><h4>${esc(p.product)}</h4><div class="sub">${p.no} · ${esc(p.line === "auto" ? p.insured.vehicle + " · " + p.insured.reg : p.line === "travel" ? (p.insured.dest || p.insured.region) : p.line === "life" ? "Sum assured " + lakh(p.sumAssured) + " · beneficiary " + p.insured.nominee : p.insured.address)}</div></div>
+      <div class="right">${UI.statusBadge(p.status)}<div class="muted" style="margin-top:4px">${p.status === "Lapsed" ? (p.line === "life" ? "Lapsed " + fdate(p.lapsedOn) : "Expired " + fdate(p.end)) : p.status === "Grace" ? "Grace ends " + fdate(p.graceEnds) : p.status === "Matured" ? "Matured " + fdate(p.end) : p.line === "life" ? (p.plan === "savings" ? "Matures " + fdate(p.end) : "Cover to " + fdate(p.end)) : "Renews " + fdate(p.end)}</div></div>
+    </a>`).join("") || `<div class="nba-empty">No policies yet. <a class="link" href="quote.html">Get a quote</a></div>`;
+
+  const claims = c.claims.slice(0, 3);
+  document.getElementById("claims").innerHTML = claims.map(k => `
+    <a class="policy-card" href="claims.html?no=${k.no}">
+      <span class="ico-bubble blue">${icon("clipboard")}</span>
+      <div><h4>${esc(k.type)}</h4><div class="sub">${k.no} · filed ${fdate(k.date)} · ${k.status === "Settled" ? "paid " + money(k.paid) : "est. " + money(k.estimate)}</div></div>
+      <div class="right">${UI.statusBadge(k.status)}${k.docsPending && k.docsPending.length ? `<div class="muted" style="margin-top:4px">${k.docsPending.length} docs needed</div>` : ""}</div>
+    </a>`).join("") || `<div class="nba-empty">No claims — and we hope it stays that way.</div>`;
+
+  const dues = c.payments.filter(p => ["Due", "Failed", "Overdue"].includes(p.status));
+  const ren = H.pols(c).filter(p => p.status === "Active" && daysUntil(p.end) <= 60);
+  document.getElementById("payments").innerHTML = [
+    ...dues.map(p => `<div class="policy-card"><span class="ico-bubble ${p.status === "Due" ? "blue" : ""}">${icon("card")}</span><div><h4>${money(p.amount)} · ${p.policy}</h4><div class="sub">${p.status === "Due" ? "Due " + fdate(p.due) : p.status + (p.failReason ? " — " + p.failReason : "") + " · was due " + fdate(p.due)}</div></div><div class="right"><a class="btn btn-primary btn-xs" href="payments.html">Pay now</a></div></div>`),
+    ...ren.map(p => `<div class="policy-card"><span class="ico-bubble amber">${icon("refresh")}</span><div><h4>${esc(p.product)} renews in ${daysUntil(p.end)} days</h4><div class="sub">${p.no} · ${p.autoRenew ? "Auto-renew on" : "Auto-renew off"}</div></div><div class="right"><a class="btn btn-dark btn-xs" href="policy.html?no=${p.no}&renew=1">Renew</a></div></div>`),
+  ].join("") || `<div class="nba-empty">Nothing due. ${c.autoPay ? "AutoPay is on." : ""}</div>`;
+
+  const ring = `conic-gradient(${score >= 80 ? "#12A150" : score >= 60 ? "#F5A623" : "#E5332A"} ${score * 3.6}deg, #EEF0F5 0)`;
+  document.getElementById("health").innerHTML = `
+    <div class="panel-head"><h3>Policy health</h3><button class="link small" id="run-health">Full check-up</button></div>
+    <div style="display:flex;gap:18px;align-items:center;margin-bottom:14px">
+      <div class="health-ring" style="background:${ring}"><div><div><b>${score}</b><small>of 100</small></div></div></div>
+      <p class="small muted" style="margin:0">${score >= 80 ? "You're well protected." : "A few gaps could leave you out of pocket."} Scores update as your life and cover change.</p>
+    </div>
+    ${INSIGHTS.healthItems(c).slice(0, 4).map(i => `<div class="garage"><span style="display:flex;gap:8px;align-items:flex-start"><span class="issue-dot" style="margin-top:8px;background:${{ red: "#E5332A", amber: "#F5A623", green: "#12A150" }[i.sev]}"></span>${esc(i.t)}</span>${i.fix ? `<a class="link small nowrap" href="${i.href}">${i.fix}</a>` : ""}</div>`).join("")}`;
+  document.getElementById("run-health").onclick = runHealthCheck;
+
+  const row = (ok, label, action, id) => `<div class="garage"><span style="display:flex;gap:8px;align-items:center">${ok ? `<span style="color:var(--green)">${icon("check")}</span>` : `<span style="color:var(--amber)">${icon("alert")}</span>`}${label}</span>${ok ? "" : `<button class="link small" id="${id}">${action}</button>`}</div>`;
+  document.getElementById("profile").innerHTML = `
+    <div class="panel-head"><h3>Profile & security</h3></div>
+    <dl class="kv" style="margin-bottom:10px"><dt>Email</dt><dd>${esc(c.email)}</dd><dt>Mobile</dt><dd>${esc(c.phone)}</dd></dl>
+    ${row(c.kyc === "Verified", "KYC " + (c.kyc === "Verified" ? "verified" : "pending"), "Complete Video-KYC", "do-kyc")}
+    ${row(c.appActivated, "Mobile app " + (c.appActivated ? "active" : "not activated"), "Activate", "do-app")}
+    ${row(c.nomineeUpdated, "Beneficiary " + (c.nomineeUpdated ? "named" : "missing"), "Add beneficiary", "do-nominee")}
+    ${row(!c.signals.newDevice, c.signals.newDevice ? "Unrecognised device sign-in" : "No unrecognised devices", "Verify", "do-verify")}`;
+  const on = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = fn; };
+  on("do-kyc", () => { const m = UI.modal(`<span class="ico-bubble" style="margin-bottom:12px">${icon("video")}</span><h3>Video-KYC</h3><p class="muted small">A 3-minute video call with our KYC officer. Keep your PhilSys ID and TIN ready.</p><div style="aspect-ratio:16/9;background:var(--navy-900);border-radius:14px;display:grid;place-items:center;color:#fff;margin-bottom:16px">${icon("video", "ico-lg")}</div><button class="btn btn-primary btn-block" id="kyc-ok">Complete KYC (demo)</button>`); m.querySelector("#kyc-ok").onclick = () => { Store.update(c.id, x => { x.kyc = "Verified"; }); UI.convert(["N22", "E20"]); UI.closeModal(); UI.toast("KYC verified — claim payouts are unlocked."); }; });
+  on("do-app", activateApp);
+  on("do-nominee", () => { const m = UI.modal(`<h3>Name a beneficiary</h3><div class="field"><label>Beneficiary name</label><input id="nm"></div><div class="field"><label>Relationship</label><select><option>Spouse</option><option>Parent</option><option>Child</option><option>Sibling</option></select></div><button class="btn btn-primary btn-block" id="nm-ok">Save beneficiary</button>`); m.querySelector("#nm-ok").onclick = () => { Store.update(c.id, x => { x.nomineeUpdated = true; }); UI.convert(["N16"]); UI.closeModal(); UI.toast("Beneficiary saved."); }; });
+  on("do-verify", verifyDevice);
+
+  const acts = [
+    ...Store.s.events.filter(e => e.cid === c.id && e.type !== "decision").slice(0, 5).map(e => ({ t: e.text, d: new Date(e.ts).toLocaleString("en-PH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }), ch: e.type })),
+    ...c.interactions.slice(0, 4).map(i => ({ t: i.note, d: fdate(i.date), ch: i.channel })),
+  ].slice(0, 7);
+  document.getElementById("activity").innerHTML = `<ul class="timeline">${acts.map(a => `<li class="done"><i></i><b style="font-weight:500">${esc(a.t)}</b><span>${a.d} · ${esc(a.ch)}</span></li>`).join("")}</ul>`;
+}
+
+function runHealthCheck() {
+  const c = Store.current();
+  UI.modal(`<span class="ico-bubble teal" style="margin-bottom:12px">${icon("stethoscope")}</span><h3>Your policy health check-up</h3>
+    <p class="muted small">We reviewed ${H.pols(c).length} active polic${H.pols(c).length === 1 ? "y" : "ies"}, your upcoming plans and local risk alerts.</p>
+    ${INSIGHTS.healthItems(c).map(i => `<div class="notice ${{ red: "danger", amber: "warn", green: "ok" }[i.sev]}" style="margin-bottom:8px"><div style="flex:1">${esc(i.t)}</div>${i.fix ? `<a class="link small nowrap" href="${i.href}">${i.fix} →</a>` : ""}</div>`).join("")}`);
+  UI.convert(["N01", "N15"].filter(a => Store.s.responses.some(r => r.cid === c.id && r.aid === a)));
+}
+function activateApp() {
+  const c = Store.current();
+  const m = UI.modal(`<span class="ico-bubble" style="margin-bottom:12px">${icon("phone")}</span><h3>Get the Instellars app</h3><p class="muted small">Scan to download, then sign in with ${esc(c.phone)}.</p>
+    <div style="width:160px;height:160px;margin:10px auto 18px;border-radius:14px;background:repeating-conic-gradient(#1E2A4A 0 25%, #fff 0 50%) 0 0/20px 20px;border:8px solid #fff;box-shadow:var(--shadow)"></div>
+    <button class="btn btn-primary btn-block" id="app-ok">I've signed in on the app (demo)</button>`);
+  m.querySelector("#app-ok").onclick = () => { Store.update(c.id, x => { x.appActivated = true; x.loyalty.points += 100; }); UI.convert(["N08"]); UI.closeModal(); UI.toast("App activated — 100 bonus points added."); };
+}
+function verifyDevice() {
+  const c = Store.current();
+  const m = UI.modal(`<span class="ico-bubble" style="margin-bottom:12px">${icon("fingerprint")}</span><h3>Verify it's you</h3><p class="muted small">Enter the code sent to ${esc(c.phone.slice(-5))}. Demo code: 123456.</p><div class="field"><input id="v-otp" inputmode="numeric" maxlength="6" placeholder="6-digit code"></div><button class="btn btn-primary btn-block" id="v-ok">Verify</button>`);
+  m.querySelector("#v-ok").onclick = () => { if (m.querySelector("#v-otp").value !== "123456") { UI.toast("Incorrect code (demo: 123456)"); return; } Store.update(c.id, x => { x.signals.newDevice = false; }); UI.convert(["E05", "E19"]); UI.closeModal(); UI.toast("Identity verified. Your account is secure."); };
+}
+if (location.hash === "#verify") setTimeout(() => { const c = Store.current(); if (c && (c.signals.newDevice || c.claims.some(k => k.fraudCheck === "Review"))) verifyDevice(); }, 300);
+if (location.hash === "#profile") setTimeout(() => document.getElementById("profile").scrollIntoView({ behavior: "smooth" }), 200);
+</script>
+</body>
+</html>

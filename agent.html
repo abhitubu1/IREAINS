@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agent Desktop | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+  <style>
+    body { background: #EEF1F7; font-size: 14px; }
+    .ad-top { background: var(--navy-950); color: #fff; height: 56px; display: flex; align-items: center; gap: 18px; padding: 0 18px; position: sticky; top: 0; z-index: 20; }
+    .ad-top .logo { color: #fff; font-size: 1.05rem; }
+    .ad-top .logo small { color: rgba(255,255,255,.55); }
+    .ad-top input { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.14); color: #fff; border-radius: 10px; padding: 8px 12px; width: 280px; }
+    .ad-top input::placeholder { color: rgba(255,255,255,.45); }
+    .ad-grid { display: grid; grid-template-columns: 270px 1fr 380px; gap: 14px; padding: 14px; align-items: start; }
+    .box { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+    .box h4 { font-family: var(--font-head); font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; display: flex; justify-content: space-between; align-items: center; }
+    .q-item { padding: 10px; border-radius: 10px; border: 1px solid var(--line); margin-bottom: 8px; cursor: pointer; font-size: .82rem; }
+    .q-item:hover, .q-item.on { border-color: var(--red); background: #FFF7F6; }
+    .q-item b { display: block; font-size: .88rem; }
+    .c-item { display: flex; gap: 10px; align-items: center; padding: 8px; border-radius: 10px; cursor: pointer; font-size: .82rem; }
+    .c-item:hover, .c-item.on { background: var(--bg-soft); }
+    .c-item .avatar { width: 32px; height: 32px; font-size: .75rem; }
+    .c360 { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; }
+    .mini-kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 14px; }
+    .mini-kpis div { background: var(--bg-soft); border-radius: 10px; padding: 10px; }
+    .mini-kpis span { font-size: .72rem; color: var(--muted); display: block; }
+    .mini-kpis b { font-family: var(--font-head); font-size: 1.05rem; }
+    .advisor { background: var(--navy-950); color: #fff; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
+    .advisor h4 { color: rgba(255,255,255,.6); }
+    .adv-card { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 12px; margin-bottom: 10px; }
+    .adv-card .script { background: rgba(0,180,180,.12); border-left: 0; border-radius: 10px; padding: 10px; font-size: .82rem; margin: 8px 0; color: #D6F5F5; font-style: italic; }
+    .adv-card .why { font-size: .74rem; color: rgba(255,255,255,.55); }
+    .gauge { height: 8px; border-radius: 99px; background: linear-gradient(90deg, #12A150, #F5A623, #E5332A); position: relative; }
+    .gauge i { position: absolute; top: -4px; width: 4px; height: 16px; background: var(--navy-950); border-radius: 2px; }
+    .ctx-banner { background: #FFF7E6; border: 1px solid #F5D08A; border-radius: 14px; padding: 14px; margin-bottom: 14px; font-size: .85rem; }
+    @media (max-width: 1200px) { .ad-grid { grid-template-columns: 240px 1fr; } .ad-right { grid-column: 1 / -1; } }
+    @media (max-width: 800px) { .ad-grid { grid-template-columns: 1fr; } .ad-top input { display: none; } .mini-kpis { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body data-page="agent">
+<div class="ad-top">
+  <span class="logo" id="ad-logo"></span>
+  <span class="chip chip-dark">Customer Service Desktop</span>
+  <input id="search" placeholder="Search name, mobile or policy…">
+  <span style="margin-left:auto;display:flex;gap:10px;align-items:center;font-size:.85rem"><span class="issue-dot" style="background:#34D399"></span>Available · Joy Santiago (CSR, Retention desk)</span>
+</div>
+<div class="ad-grid">
+  <aside>
+    <div class="box"><h4>Callback queue <span class="badge b-red" id="q-count">0</span></h4><div id="queue"></div></div>
+    <div class="box"><h4>Real-time alerts</h4><div id="alerts"></div></div>
+    <div class="box"><h4>Customers</h4><div id="custs"></div></div>
+  </aside>
+  <section id="center"></section>
+  <aside class="ad-right" id="right"></aside>
+</div>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.ensureOverlay();
+document.getElementById("ad-logo").innerHTML = `${LOGO_MARK}<div>Instellars<small>Insurance</small></div>`;
+let cid = null, hid = null, tab = "overview", lastQ = Store.s.handoffs.length;
+
+document.getElementById("search").addEventListener("input", e => {
+  const v = e.target.value.toLowerCase().trim(); if (v.length < 3) return;
+  const c = Store.allCustomers().find(x => x.name.toLowerCase().includes(v) || x.phone.replace(/\s/g, "").includes(v.replace(/\s/g, "")) || x.policies.some(p => p.no.toLowerCase().includes(v)));
+  if (c) { cid = c.id; hid = null; render(); }
+});
+window.addEventListener("store:change", e => {
+  if (Store.s.handoffs.length > lastQ) { const h = Store.s.handoffs[0]; UI.toast(`New callback request: ${nameOf(h.cid)} — ${h.reason}`, 6000); }
+  lastQ = Store.s.handoffs.length;
+  render();
+});
+const firstWaiting = Store.s.handoffs.find(h => h.status === "Waiting");
+if (firstWaiting) { hid = firstWaiting.id; cid = firstWaiting.cid; } else cid = (Store.current() || Store.allCustomers()[0]).id;
+render();
+setInterval(() => renderLeft(), 30000);
+
+function nameOf(id) { const c = Store.customer(id); return c ? c.name : "Prospect " + id; }
+function ago(ts) { const m = Math.round((Date.now() - ts) / 60000); return m < 1 ? "just now" : m < 60 ? m + " min ago" : Math.round(m / 60) + " h ago"; }
+
+function render() { renderLeft(); renderCenter(); renderRight(); }
+
+function renderLeft() {
+  const q = Store.s.handoffs.filter(h => h.status !== "Completed");
+  document.getElementById("q-count").textContent = q.filter(h => h.status === "Waiting").length;
+  document.getElementById("queue").innerHTML = q.map(h => `<div class="q-item ${h.id === hid ? "on" : ""}" data-h="${h.id}"><span style="float:right">${UI.statusBadge(h.status)}</span><b>${esc(nameOf(h.cid))}</b>${esc(h.reason)}<div class="xs muted">${ago(h.ts)} · ${esc((h.context && h.context.when) || "")} · from ${esc(h.page)}</div></div>`).join("") || `<p class="xs muted" style="margin:0">No callbacks waiting. Request one from the website (e.g. cancel a policy).</p>`;
+  const alerts = [];
+  Store.allCustomers().forEach(c => {
+    if (c.signals.cancelIntent) alerts.push([c, "doorExit", "Cancellation intent", `${c.signals.cancelIntent.policy} · ${c.signals.cancelIntent.reason}`, "b-red"]);
+    if (c.claims.some(k => k.fraudCheck === "Review")) alerts.push([c, "shieldAlert", "Claim under fraud review", c.claims.find(k => k.fraudCheck === "Review").no, "b-amber"]);
+    if (H.grace(c)) alerts.push([c, "clock", "Policy in grace period", H.grace(c).no, "b-amber"]);
+    if (H.lapsed(c)) alerts.push([c, "undo", "Lapsed policy", H.lapsed(c).no, "b-gray"]);
+  });
+  document.getElementById("alerts").innerHTML = alerts.map(([c, i, t, d, b]) => `<div class="c-item" data-c="${c.id}">${icon(i)}<div><b>${esc(c.name)}</b><span class="badge ${b}">${t}</span><div class="xs muted">${esc(d)}</div></div></div>`).join("") || `<p class="xs muted" style="margin:0">No alerts.</p>`;
+  document.getElementById("custs").innerHTML = Store.allCustomers().map(c => `<div class="c-item ${c.id === cid ? "on" : ""}" data-c="${c.id}"><span class="avatar">${c.first[0]}${(c.name.split(" ")[1] || " ")[0]}</span><div><b>${esc(c.name)}</b><div class="xs muted">${esc(CDH.displayId(c))} · ${esc(c.segment)}</div></div></div>`).join("");
+  document.querySelectorAll("[data-h]").forEach(el => el.onclick = () => {
+    const h = Store.s.handoffs.find(x => x.id === el.dataset.h);
+    hid = h.id; cid = h.cid;
+    if (h.status === "Waiting") { h.status = "In progress"; Store.log(h.cid, "handoff", `Callback picked up by agent · ${h.id}`); Store.save(); } else render();
+  });
+  document.querySelectorAll("[data-c]").forEach(el => el.onclick = () => { cid = el.dataset.c; hid = null; render(); });
+}
+
+function renderCenter() {
+  const c = Store.customer(cid), el = document.getElementById("center");
+  if (!c) { el.innerHTML = `<div class="box">Anonymous prospect — no customer record yet.</div>`; return; }
+  const h = hid && Store.s.handoffs.find(x => x.id === hid);
+  const risk = H.lapseScore(c);
+  el.innerHTML = `
+    ${h ? `<div class="ctx-banner"><div style="display:flex;justify-content:space-between;gap:10px"><b>${icon("send", "xs")} Digital handoff ${h.id} · ${esc(h.reason)}</b><span class="xs muted">${ago(h.ts)}</span></div>
+      <div style="margin-top:6px">Customer was on <b>${esc(h.page)}</b>${h.context && h.context.intent ? ` · intent: <b>${esc(h.context.intent)}</b>` : ""} · wants a call <b>${esc((h.context && h.context.when) || "now")}</b></div>
+      ${h.context && h.context.recentNBA && h.context.recentNBA.length ? `<div class="xs muted" style="margin-top:4px">Recent digital responses: ${h.context.recentNBA.map(esc).join(" · ")}</div>` : ""}</div>` : ""}
+    <div class="box">
+      <div class="c360"><span class="avatar" style="width:52px;height:52px;font-size:1.1rem">${c.first[0]}${(c.name.split(" ")[1] || " ")[0]}</span>
+        <div><h3 style="margin:0">${esc(c.name)} <span class="muted small">${esc(CDH.displayId(c))}</span></h3><div class="small muted">${esc(c.segment)} · ${c.age} yrs · ${esc(c.city)} · ${esc(c.phone)} · customer since ${fdate(c.customerSince)}</div>
+          <div class="nba-meta" style="margin-top:6px"><span class="badge b-blue">${c.loyalty.tier}</span><span class="badge ${c.kyc === "Verified" ? "b-green" : "b-amber"}">KYC ${c.kyc}</span>${c.autoPay ? '<span class="badge b-teal">AutoPay</span>' : ""}${c.signals.cancelIntent ? '<span class="badge b-red">Cancellation intent</span>' : ""}</div></div>
+        <div style="width:170px"><div class="xs muted" style="display:flex;justify-content:space-between"><span>Lapse risk</span><b style="color:${risk >= .6 ? "var(--red)" : risk >= .35 ? "var(--amber)" : "var(--green)"}">${Math.round(risk * 100)}%</b></div><div class="gauge" style="margin-top:6px"><i style="left:${risk * 100}%"></i></div>
+          ${c.risk.churnDrivers && c.risk.churnDrivers.length ? `<div class="xs muted" style="margin-top:6px">${c.risk.churnDrivers.map(esc).join(" · ")}</div>` : ""}</div></div>
+      <div class="mini-kpis">
+        <div><span>Active policies</span><b>${H.pols(c).length}</b></div>
+        <div><span>Annual premium</span><b>${money(H.pols(c).reduce((s, p) => s + p.premium, 0))}</b></div>
+        <div><span>Open claims</span><b>${c.claims.filter(k => !["Settled", "Rejected"].includes(k.status)).length}</b></div>
+        <div><span>Overdue</span><b style="color:${H.failedPay(c) ? "var(--red)" : "inherit"}">${H.failedPay(c) ? money(H.failedPay(c).amount) : "—"}</b></div>
+        <div><span>Health score</span><b>${INSIGHTS.healthScore(c)}</b></div>
+      </div>
+    </div>
+    <div class="box">
+      <div class="tabs" style="margin-bottom:12px">${[["overview", "Policies & claims"], ["timeline", "Interactions"], ["digital", "Digital journey"]].map(([k, l]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div id="tab"></div>
+    </div>`;
+  document.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = b.dataset.tab; renderCenter(); });
+  const t = document.getElementById("tab");
+  if (tab === "overview") {
+    t.innerHTML = `<div class="table-wrap" style="margin-bottom:12px"><table class="t"><thead><tr><th>Policy</th><th>Product</th><th>Insured</th><th>Period</th><th class="num">Premium</th><th>Status</th></tr></thead><tbody>
+      ${c.policies.map(p => `<tr><td>${p.no}</td><td>${esc(p.product)}<div class="xs muted">${(p.addons || []).join(", ")}</div></td><td class="small">${esc(p.line === "auto" ? p.insured.vehicle + " · NCB " + p.ncb + "%" : p.line === "property" ? "SI " + lakh(p.sumInsured || p.contents) : p.line === "life" ? "SA " + lakh(p.sumAssured) + " · beneficiary " + p.insured.nominee : p.insured.region || p.insured.dest)}</td><td class="small">${fshort(p.start)} – ${fdate(p.end)}</td><td class="num">${money(p.premium)}</td><td>${UI.statusBadge(p.status)}</td></tr>`).join("")}</tbody></table></div>
+      ${c.claims.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Claim</th><th>Type</th><th>Filed</th><th class="num">Amount</th><th>Status</th><th>Fraud</th></tr></thead><tbody>${c.claims.map(k => `<tr><td>${k.no}</td><td>${esc(k.type)}</td><td>${fdate(k.date)}</td><td class="num">${money(k.paid || k.estimate)}</td><td>${UI.statusBadge(k.status)}</td><td>${k.fraudCheck === "Review" ? '<span class="badge b-amber">Review</span>' : '<span class="badge b-green">' + esc(k.fraudCheck) + "</span>"}</td></tr>`).join("")}</tbody></table></div>` : `<p class="small muted">No claims.</p>`}`;
+  } else if (tab === "timeline") {
+    const items = [...c.interactions.map(i => ({ d: i.date, t: i.note, ch: i.channel })), ...Store.s.events.filter(e => e.cid === c.id && e.type !== "decision").map(e => ({ d: iso(new Date(e.ts)), t: e.text, ch: e.type, ts: e.ts }))]
+      .sort((a, b) => (b.ts || parseDate(b.d).getTime()) - (a.ts || parseDate(a.d).getTime())).slice(0, 25);
+    t.innerHTML = `<ul class="timeline">${items.map(i => `<li class="done"><i></i><b style="font-weight:500">${esc(i.t)}</b><span>${fdate(i.d)} · ${esc(i.ch)}</span></li>`).join("")}</ul>`;
+  } else {
+    const rs = Store.s.responses.filter(r => r.cid === c.id).slice(0, 30);
+    t.innerHTML = rs.length ? `<div class="table-wrap"><table class="t"><thead><tr><th>Time</th><th>Channel</th><th>Action</th><th>Outcome</th></tr></thead><tbody>${rs.map(r => `<tr><td class="small">${new Date(r.ts).toLocaleString("en-PH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</td><td>${(CHANNELS[r.channel] || { label: r.channel }).label}</td><td>${esc(ACTION_BY_ID[r.aid] ? ACTION_BY_ID[r.aid].name : r.aid)}</td><td><span class="badge ${{ Accepted: "b-green", Clicked: "b-blue", Rejected: "b-red", Impression: "b-gray" }[r.outcome]}">${r.outcome}</span></td></tr>`).join("")}</tbody></table></div>` : `<p class="small muted">No digital activity captured yet.</p>`;
+  }
+}
+
+function renderRight() {
+  const c = Store.customer(cid), el = document.getElementById("right");
+  if (!c) { el.innerHTML = ""; return; }
+  const d = CDH.decide({ subject: c, channel: "Agent", context: c.signals.cancelIntent ? "cancel" : null, limit: 3 });
+  const h = hid && Store.s.handoffs.find(x => x.id === hid);
+  el.innerHTML = `
+    <div class="advisor"><h4>${icon("cpu", "xs")} Next-Best-Action Advisor <span style="font-weight:400;text-transform:none;letter-spacing:0">Pega CDH</span></h4>
+      ${d.top.map((r, i) => {
+        const t = CDH.treatment(r.action, c);
+        const script = r.action.script ? CDH.safe(r.action.script, c, "") : `"${t.h}. ${t.b}"`;
+        return `<div class="adv-card"><div style="display:flex;justify-content:space-between;gap:8px"><span class="cdh-tag" style="color:#7FE3E3">#${i + 1} · ${r.action.issue}</span><span class="xs" style="opacity:.6">score ${r.score.toFixed(1)}</span></div>
+          <b style="display:block;margin-top:4px">${esc(r.action.name)}</b>
+          <div class="script">${esc(script)}</div>
+          <div class="why">Propensity ${(r.p * 100).toFixed(0)}% · BVW ${r.bvw} · context ×${r.cw.toFixed(2)} · ${esc(JOURNEYS.find(j => j.id === r.action.journey).name)}</div>
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-primary btn-xs" data-acc="${r.action.id}">Accepted</button><button class="btn btn-light btn-xs" data-rej="${r.action.id}">Not interested</button><button class="btn btn-light btn-xs" data-why="${r.action.id}">Why?</button></div></div>`;
+      }).join("") || `<p class="small" style="opacity:.7">No eligible actions for this customer right now.</p>`}
+    </div>
+    <div class="box"><h4>Call wrap-up</h4>
+      <div class="field"><label>Disposition</label><select id="disp"><option>Retained — offer accepted</option><option>Retained — no offer needed</option><option>Query resolved</option><option>Cancellation processed</option><option>Callback rescheduled</option></select></div>
+      <div class="field"><label>Notes</label><textarea id="notes" rows="3" placeholder="Summary of the conversation"></textarea></div>
+      <button class="btn btn-dark btn-sm btn-block" id="wrap">Save & ${h ? "close handoff" : "log interaction"}</button></div>`;
+  el.querySelectorAll("[data-why]").forEach(b => b.onclick = () => UI.trace(d, b.dataset.why));
+  el.querySelectorAll("[data-rej]").forEach(b => b.onclick = () => { CDH.respond(c.id, b.dataset.rej, "Rejected", "Agent", "call"); UI.toast("Response captured — adaptive model updated."); });
+  el.querySelectorAll("[data-acc]").forEach(b => b.onclick = () => {
+    const aid = b.dataset.acc;
+    if (["R07", "R09", "R13"].includes(aid)) {
+      Store.update(c.id, x => {
+        delete x.signals.cancelIntent; x.risk.lapseScore = .25; x.signals.competitorQuote = false;
+        const p = x.policies.find(y => y.status === "Active" || y.status === "Grace");
+        if (p) { p.premium = Math.round(p.premium * .88); x.interactions.unshift({ date: D(0), channel: "Call Center", note: `12% loyalty discount applied to ${p.no} by agent` }); }
+      });
+      UI.toast("Retention offer applied: 12% loyalty discount. Cancellation intent cleared.");
+    } else UI.toast("Offer accepted — captured to CDH.");
+    CDH.respond(c.id, aid, "Accepted", "Agent", "call");
+  });
+  document.getElementById("wrap").onclick = () => {
+    const disp = document.getElementById("disp").value, notes = document.getElementById("notes").value;
+    Store.update(c.id, x => { x.interactions.unshift({ date: D(0), channel: "Call Center", note: `${disp}${notes ? " — " + notes : ""}` }); });
+    if (h) { h.status = "Completed"; Store.log(c.id, "handoff", `Callback ${h.id} completed · ${disp}`); Store.save(); hid = null; }
+    UI.toast("Interaction saved.");
+  };
+}
+</script>
+</body>
+</html>

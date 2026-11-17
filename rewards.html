@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Rewards & Vitality | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="rewards" data-hero="dark">
+<header id="site-header"></header>
+<main>
+  <section class="hero page-hero" style="padding:48px 0 56px"><div class="wrap" id="rhead"></div></section>
+  <section class="block tight"><div class="wrap" id="rbody"></div></section>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.init();
+const seen = a => { const c = Store.current(); return c && Store.s.responses.some(r => r.cid === c.id && r.aid === a); };
+const addPts = (n, why) => { const c = Store.current(); Store.update(c.id, x => { x.loyalty.points += n; x.loyalty.tier = INSIGHTS.tierOf(x.loyalty.points); }); Store.event(c.id, "reward", `${n > 0 ? "+" : ""}${n} points · ${why}`); };
+
+render();
+if (Store.current()) {
+  window.addEventListener("store:change", render);
+  if (location.hash) setTimeout(() => { const el = document.querySelector(location.hash); if (el) el.scrollIntoView({ behavior: "smooth" }); }, 300);
+}
+
+function render() {
+  const c = Store.current();
+  const head = document.getElementById("rhead"), body = document.getElementById("rbody");
+  if (!c) {
+    head.innerHTML = `<h1>Rewards for <span class="red">living well</span></h1><p class="lead">Earn points for staying active, renewing on time and staying claim-free. Spend them on renewal discounts, health check-ups and more.</p><div class="hero-actions"><a class="btn btn-primary" href="login.html?next=rewards.html">Log in to see your points</a></div>`;
+    body.innerHTML = `<div class="grid g3">${[["heart", "Vitality", "Sync your steps and earn up to 10% off renewals."], ["stethoscope", "Free check-ups", "An annual 62-parameter health check for members."], ["gift", "Spend your points", "Renewal discounts, vouchers and gym passes."]].map(([i, h, p]) => `<div class="card"><span class="ico-bubble teal">${icon(i)}</span><h3>${h}</h3><p class="muted small">${p}</p></div>`).join("")}</div>`;
+    return;
+  }
+  const nt = INSIGHTS.nextTier(c), w = c.wellness;
+  const tierMin = INSIGHTS.tiers.find(t => t.name === c.loyalty.tier).min;
+  head.innerHTML = `<div class="crumbs"><a href="dashboard.html">My account</a> / Rewards</div>
+    <div class="hero-grid" style="gap:32px"><div><span class="chip chip-red" style="margin-bottom:14px">${c.loyalty.tier} member</span><h1 style="margin-bottom:8px">${c.loyalty.points.toLocaleString("en-PH")} <span class="red">points</span></h1>
+      <p class="lead" style="margin:0">${nt ? `${nt.gap.toLocaleString("en-PH")} points to ${nt.name}` : "You've reached our top tier."}</p>
+      ${nt ? `<div class="meter" style="margin-top:14px;max-width:420px;background:rgba(255,255,255,.12)"><i style="width:${(c.loyalty.points - tierMin) / (c.loyalty.points - tierMin + nt.gap) * 100}%"></i></div>` : ""}</div>
+      <div class="stat-grid"><div class="glass stat"><b>${H.tenure(c)}</b><span>Years with us</span></div><div class="glass stat"><b>${w.enrolled ? (w.stepsWeek / 1000).toFixed(1) + "k" : "—"}</b><span>Steps this week</span></div></div></div>`;
+
+  const celebrate = (H.birthday(c) && !c.giftBirthday) ? ["cake", `Happy birthday, ${c.first}!`, "200 bonus points are waiting for you.", 200, "giftBirthday", ["N10"]]
+    : (H.anniversary(c) && !c.giftAnniv) ? ["award", `${H.tenure(c)} years together!`, "Thank you for your loyalty — collect 500 anniversary points.", 500, "giftAnniv", ["N09", "N23", "R17"]] : null;
+
+  body.innerHTML = `
+    ${celebrate ? `<div class="nba-hero" style="margin-bottom:28px"><span class="ico-bubble">${icon(celebrate[0], "ico-lg")}</span><div><h3>${esc(celebrate[1])}</h3><p>${celebrate[2]}</p></div><div class="actions"><button class="btn btn-primary" id="gift">Collect ${celebrate[3]} points</button></div></div>` : ""}
+    <div class="dash-grid">
+      <div>
+        <div class="panel" id="wellness"><div class="panel-head"><h3>Instellars Vitality</h3>${w.enrolled ? '<span class="badge b-teal">Member</span>' : ""}</div>
+          ${w.enrolled ? `
+            <div style="display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:6px"><span>This week: <b>${w.stepsWeek.toLocaleString("en-PH")}</b> steps</span><span class="muted">Goal ${w.goal.toLocaleString("en-PH")}</span></div>
+            <div class="meter teal" style="height:12px"><i style="width:${Math.min(100, w.stepsWeek / w.goal * 100)}%"></i></div>
+            <div class="garage" style="margin-top:12px"><span>${icon("watch")} Fitness tracker</span>${w.trackerLinked ? '<span class="badge b-green">Connected</span>' : '<button class="btn btn-dark btn-xs" id="link">Connect</button>'}</div>
+            <div class="garage"><span>Renewal discount earned</span><b>${Math.min(10, Math.round(w.stepsWeek / w.goal * 6))}%</b></div>`
+          : `<p class="muted">Sync your steps, complete weekly challenges and earn up to 10% off your renewals — free for all policyholders.</p><button class="btn btn-primary" id="enroll">Join Vitality — +200 points</button>`}
+        </div>
+        <div class="panel" id="challenge"><div class="panel-head"><h3>Weekly steps challenge</h3></div>
+          ${!w.enrolled ? `<p class="muted small">Join Vitality to take part.</p>` : w.challengeClaimed ? `<div class="notice ok">${icon("trophy")}<div>Challenge complete — 250 points collected. New challenge starts Monday.</div></div>`
+            : w.stepsWeek >= w.goal ? `<div class="notice ok" style="margin-bottom:12px">${icon("trophy")}<div><b>Goal achieved!</b> You walked ${w.stepsWeek.toLocaleString("en-PH")} steps this week.</div></div><button class="btn btn-primary btn-sm" id="claim">Claim 250 points</button>`
+            : `<p class="muted small">${(w.goal - w.stepsWeek).toLocaleString("en-PH")} steps to go this week. You've got this.</p>`}
+        </div>
+        <div class="panel" id="redeem"><div class="panel-head"><h3>Spend your points</h3></div>
+          ${[["Renewal discount ₱500", 1000, "percent"], ["SM Gift Pass ₱500", 600, "gift"], ["1-month gym pass", 1500, "heart"], ["Free car wash & check", 800, "car"]].map(([n, p, i]) => `<div class="garage"><span style="display:flex;gap:10px;align-items:center">${icon(i)} ${n}</span><button class="btn btn-ghost btn-xs" data-redeem="${p}" data-name="${n}" ${c.loyalty.points < p ? "disabled" : ""}>${p.toLocaleString("en-PH")} pts</button></div>`).join("")}
+        </div>
+      </div>
+      <aside>
+        <div class="panel" id="checkup"><div class="panel-head"><h3>Annual health check-up</h3></div>
+          <p class="small muted">Last check-up: ${w.lastCheckup ? fdate(w.lastCheckup) : "never"}. ${w.enrolled ? "Free for Vitality members." : "Free once you join Vitality."}</p>
+          <button class="btn btn-dark btn-sm btn-block" id="book" ${w.lastCheckup && -daysUntil(w.lastCheckup) < 300 ? "disabled" : ""}>Book home sample collection</button></div>
+        <div class="panel" id="refer"><div class="panel-head"><h3>Refer a friend</h3></div><p class="small muted">Give ₱500, get ₱500 when they buy their first policy.</p>
+          <div class="field" style="margin:0"><input readonly value="instellars.ph/r/${c.first.toUpperCase()}${c.id.slice(-3)}"></div><button class="btn btn-ghost btn-sm btn-block" style="margin-top:10px" id="share">Copy my link</button></div>
+        <div class="panel"><div class="panel-head"><h3>Recommended</h3></div><div id="nba"></div></div>
+      </aside>
+    </div>`;
+  const on = (id, fn) => { const b = document.getElementById(id); if (b) b.onclick = fn; };
+  on("gift", () => { Store.update(c.id, x => { x[celebrate[4]] = true; }); addPts(celebrate[3], celebrate[1]); UI.convert(celebrate[5].filter(seen)); UI.toast(`${celebrate[3]} points added 🎉`); });
+  on("enroll", () => { Store.update(c.id, x => { x.wellness.enrolled = true; x.wellness.challengeClaimed = false; }); addPts(200, "Joined Vitality"); UI.convert(["N04"].filter(seen)); UI.toast("Welcome to Vitality! +200 points."); });
+  on("link", () => { Store.update(c.id, x => { x.wellness.trackerLinked = true; }); UI.convert(["N17"].filter(seen)); UI.toast("Tracker connected — steps sync automatically."); });
+  on("claim", () => { Store.update(c.id, x => { x.wellness.challengeClaimed = true; }); addPts(250, "Weekly steps challenge"); UI.convert(["N06"].filter(seen)); UI.toast("250 points claimed. Keep it up!"); });
+  on("book", () => {
+    const m = UI.modal(`<span class="ico-bubble teal" style="margin-bottom:12px">${icon("stethoscope")}</span><h3>Book your health check-up</h3>
+      <div class="field"><label>Preferred date</label><input type="date" id="bd" value="${D(3)}" min="${D(1)}"></div>
+      <div class="field"><label>Partner lab</label><select><option>Hi-Precision Diagnostics — home service</option><option>Healthway — home service</option><option>St. Luke's Medical Center — walk-in</option></select></div>
+      <button class="btn btn-primary btn-block" id="bk">Confirm booking</button>`);
+    m.querySelector("#bk").onclick = () => { Store.update(c.id, x => { x.wellness.lastCheckup = D(0); }); UI.convert(["N05", "N18"].filter(seen)); UI.closeModal(); UI.toast("Booked! Confirmation sent on WhatsApp."); };
+  });
+  on("share", () => { try { navigator.clipboard.writeText(document.querySelector("#refer input").value); } catch (e) { /* ignore */ } UI.convert(["R16"].filter(seen)); UI.toast("Referral link copied."); });
+  document.querySelectorAll("[data-redeem]").forEach(b => b.onclick = () => { addPts(-(+b.dataset.redeem), "Redeemed " + b.dataset.name); UI.convert(["N19"].filter(seen)); UI.toast(`Redeemed: ${b.dataset.name}`); });
+  UI.nba("nba", { channel: "Web", context: "rewards", limit: 3, variant: "list" });
+}
+</script>
+</body>
+</html>

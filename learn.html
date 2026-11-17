@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Learn | Instellars Insurance</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/site.css">
+</head>
+<body data-page="learn" data-hero="dark">
+<header id="site-header"></header>
+<main>
+  <section class="hero page-hero"><div class="wrap">
+    <div class="crumbs"><a href="index.html">Home</a> / Learn</div>
+    <h1>Know your cover. <span class="red">Stay ahead</span> of risk.</h1>
+    <p class="lead">Plain-English guides, calculators and safety checklists from our claims experts.</p>
+    <div class="hero-chips"><a class="chip chip-dark" href="#guide">Planning guide</a><a class="chip chip-dark" href="#calculator">Cover calculator</a><a class="chip chip-dark" href="#safety">Safety checklist</a><a class="chip chip-dark" href="#lifestage">Life stages</a><a class="chip chip-dark" href="#longevity">Health & longevity</a><a class="chip chip-dark" href="#fraud">Fraud awareness</a><a class="chip chip-dark" href="#community">Community</a><a class="chip chip-dark" href="#esg">Sustainability</a></div>
+  </div></section>
+
+  <section class="block tight soft"><div class="wrap"><div id="nba"></div></div></section>
+
+  <section class="block" id="guide"><div class="wrap grid g2" style="gap:48px;align-items:start">
+    <div><span class="eyebrow">Planning guide</span><h2>The 10-minute insurance plan</h2>
+      <p class="muted">Most people are either over-insured on things that don't matter or under-insured on the things that do. Here's how to get it right.</p></div>
+    <div class="grid" style="gap:14px">
+      <div class="feature card"><span class="ico-bubble" data-icon="car"></span><div><h4>Car: insure the full market value, and add Acts of Nature</h4><p>A low sum insured cuts premium but slashes your payout if the car is stolen. Acts of Nature covers typhoon, flood and earthquake damage, which basic comprehensive cover excludes.</p></div></div>
+      <div class="feature card"><span class="ico-bubble amber" data-icon="home"></span><div><h4>Home: insure rebuild cost, not market value</h4><p>Land doesn't burn. Insure what it would cost to rebuild — and don't forget contents; most burst-pipe claims are about furniture and electronics.</p></div></div>
+      <div class="feature card"><span class="ico-bubble teal" data-icon="plane"></span><div><h4>Travel: buy when you book, not when you fly</h4><p>Cancellation cover only protects you from the day you buy. A single hospital night abroad can cost more than your whole trip.</p></div></div>
+    </div>
+  </div></section>
+
+  <section class="block soft" id="calculator"><div class="wrap layout-side">
+    <div class="card" style="padding:32px">
+      <span class="eyebrow">Calculator</span><h2>How much should you insure your home for?</h2>
+      <div class="row3">
+        <div class="field"><label>Floor area (sqm)</label><input type="number" id="k-area" value="120" min="20"></div>
+        <div class="field"><label>City</label><select id="k-city"><option value="42000">Metro Manila</option><option value="36000">Typhoon-prone province</option><option value="32000">Other city</option></select></div>
+        <div class="field"><label>Construction</label><select id="k-q"><option value="1">Standard</option><option value="1.25">Premium finishes</option><option value="1.5">Luxury</option></select></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>Electronics (₱)</label><input type="number" id="k-el" value="300000"></div>
+        <div class="field"><label>Furniture (₱)</label><input type="number" id="k-fu" value="250000"></div>
+        <div class="field"><label>Appliances & other (₱)</label><input type="number" id="k-ap" value="150000"></div>
+      </div>
+      <div id="k-out"></div>
+    </div>
+    <aside class="summary-card sticky" id="k-sum"></aside>
+  </div></section>
+
+  <section class="block" id="safety"><div class="wrap">
+    <div class="sec-head"><div><span class="eyebrow">Safety checklist</span><h2 style="margin:0">5 checks that prevent 80% of home claims</h2></div><div id="alert-box"></div></div>
+    <div class="grid g3">
+      <div class="card"><span class="ico-bubble blue" data-icon="storm"></span><h3>Before a storm</h3><p class="muted small">Move cars to higher ground, clear balcony drains, unplug appliances and keep documents in a waterproof bag.</p></div>
+      <div class="card"><span class="ico-bubble" data-icon="bolt"></span><h3>Electrical safety</h3><p class="muted small">Get wiring checked every 5 years. Don't daisy-chain extension boards — electrical fires are our #2 home claim.</p></div>
+      <div class="card"><span class="ico-bubble teal" data-icon="wrench"></span><h3>Plumbing</h3><p class="muted small">Replace flexible hoses every 5 years and know where your main stop-valve is. Burst pipes are our #1 home claim.</p></div>
+      <div class="card"><span class="ico-bubble amber" data-icon="lock"></span><h3>Going away</h3><p class="muted small">Use timer lights, pause deliveries, and tell a neighbour. Homes unoccupied 30+ days need to be declared.</p></div>
+      <div class="card"><span class="ico-bubble" data-icon="car"></span><h3>Rainy-season driving</h3><p class="muted small">Avoid flooded streets, and never restart a car stalled in water — it causes engine damage that isn't covered without Engine Protect.</p></div>
+      <div class="card"><span class="ico-bubble blue" data-icon="phoneCall"></span><h3>If it happens</h3><p class="muted small">Stay safe, take photos, and report on WhatsApp within 48 hours. Don't start repairs before our surveyor says so.</p></div>
+    </div>
+  </div></section>
+
+  <section class="block" id="lifestage"><div class="wrap">
+    <div class="sec-head"><div><span class="eyebrow">Life stages</span><h2 style="margin:0">Big moments change what your family needs</h2></div><a class="btn btn-outline btn-sm" href="quote.html?line=life">Check my life cover</a></div>
+    <div class="grid g4">
+      <div class="card"><span class="ico-bubble" data-icon="heart"></span><h3>Getting married</h3><p class="muted small">Add your spouse as nominee and consider term cover of 10 to 15 times your income, so one income can't leave the other stranded.</p></div>
+      <div class="card"><span class="ico-bubble amber" data-icon="home"></span><h3>Taking a housing loan</h3><p class="muted small">Whether it's Pag-IBIG or a bank loan, make sure your life cover can clear it, and that the home itself is insured for its rebuild cost.</p></div>
+      <div class="card"><span class="ico-bubble teal" data-icon="users"></span><h3>Having a child</h3><p class="muted small">Increase cover to fund education, and add a Waiver of Premium rider so savings plans continue if you can't work.</p></div>
+      <div class="card"><span class="ico-bubble blue" data-icon="award"></span><h3>Nearing retirement</h3><p class="muted small">As savings plans mature, reinvest the proceeds for guaranteed income instead of leaving them idle.</p></div>
+    </div>
+  </div></section>
+
+  <section class="block" id="longevity"><div class="wrap grid g2" style="gap:48px;align-items:center">
+    <div><span class="eyebrow">Health & longevity</span><h2>After 40: the 4 checks that add years</h2>
+      <p class="muted">Most serious conditions are cheaper and easier to treat when caught early. Our medical team recommends:</p>
+      <ul class="small" style="padding-left:18px;line-height:2"><li><b>Blood pressure</b> every year: the leading cause of heart attacks and strokes.</li><li><b>HbA1c (blood sugar)</b> every year: 1 in 4 Filipinos over 45 is diabetic or pre-diabetic.</li><li><b>Lipid profile</b> every 2 years: cholesterol rarely shows symptoms.</li><li><b>Cancer screening</b>: mammogram or PSA as advised by your doctor.</li></ul></div>
+    <div class="card card-dark" style="padding:32px"><span class="ico-bubble" style="background:rgba(255,255,255,.08);color:#fff" data-icon="stethoscope"></span><h3 style="margin-top:14px">Free annual check-up for policyholders</h3><p style="color:rgba(255,255,255,.7)">Life and Vitality members get a free 62-parameter health check every year, with home sample collection.</p><a class="btn btn-light btn-sm" href="rewards.html#checkup">Book my check-up</a></div>
+  </div></section>
+
+  <section class="block soft" id="fraud"><div class="wrap grid g2" style="gap:48px;align-items:center">
+    <div><span class="eyebrow">Fraud awareness</span><h2>We'll never ask for your OTP</h2><p class="muted">Fake renewal calls and “policy bonus” scams are rising. Here's how to spot them.</p>
+      <ul class="small" style="padding-left:18px;line-height:2"><li>We only call from ${BRAND.helpline} and never ask for OTPs, PINs or card numbers.</li><li>Renewal links always go to <b>instellars.ph</b> — check before you pay.</li><li>No one can “release a policy bonus” for a fee.</li><li>Report suspicious calls on WhatsApp: type <b>FRAUD</b>.</li></ul></div>
+    <div class="card card-dark" style="padding:32px"><span class="ico-bubble" style="background:rgba(255,255,255,.08);color:#fff" data-icon="shieldAlert"></span><h3 style="margin-top:14px">Suspect a fake claim on your policy?</h3><p style="color:rgba(255,255,255,.7)">If you get a claim notification you don't recognise, report it in your account. We'll block the claim and secure your policy.</p><a class="btn btn-light btn-sm" href="claims.html">Review my claims</a></div>
+  </div></section>
+
+  <section class="block" id="community"><div class="wrap grid g2" style="gap:48px;align-items:center">
+    <div class="card" style="padding:0;overflow:hidden"><div style="aspect-ratio:16/10;background:linear-gradient(135deg,#1E2A4A,#3B5BDB);display:grid;place-items:center;color:#fff;text-align:center;padding:24px"><div><div style="font-family:var(--font-head);font-size:3rem;font-weight:700">1,240</div><div>homes rebuilt after the floods</div></div></div></div>
+    <div><span class="eyebrow">Community impact</span><h2>When the water came, we came faster</h2><p class="muted">After last year's typhoon, our catastrophe response team set up help desks in 14 provinces, settled 94% of claims within 10 days and advanced ₱250 million in interim payments — before adjustments were complete.</p><p class="muted">“The adjuster came to our evacuation center. We had the first payment in four days.” — a policyholder in Leyte</p></div>
+  </div></section>
+
+  <section class="block soft" id="esg"><div class="wrap">
+    <div class="sec-head"><div><span class="eyebrow">Sustainability</span><h2 style="margin:0">Our 2030 net-zero commitment — year 2</h2></div></div>
+    <div class="grid g4">
+      <div class="kpi"><span>Paper saved</span><b>38M sheets</b></div><div class="kpi"><span>Green-repair garages</span><b>1,850</b></div>
+      <div class="kpi"><span>Renewable energy (offices)</span><b>72%</b></div><div class="kpi"><span>Trees planted for paperless</span><b>210k</b></div>
+    </div>
+  </div></section>
+</main>
+<footer id="site-footer"></footer>
+<script src="js/data.js"></script>
+<script src="js/store.js"></script>
+<script src="js/cdh.js"></script>
+<script src="js/ui.js"></script>
+<script>
+UI.init();
+UI.convert();   // informational destinations count as accepted once reached
+UI.nba("nba", { channel: "Web", context: "learn", limit: 3 });
+
+const c = Store.current();
+if (c && c.signals.weatherAlert) {
+  const w = c.signals.weatherAlert;
+  document.getElementById("alert-box").innerHTML = `<div class="notice danger">${icon("storm")}<div><b>${esc(w.severity)} alert — ${esc(w.type)}, ${esc(w.region)}</b><br>${esc(w.detail)}</div></div>`;
+}
+
+function calc() {
+  const v = id => +document.getElementById(id).value || 0;
+  const rebuild = v("k-area") * v("k-city") * +document.getElementById("k-q").value;
+  const contents = v("k-el") + v("k-fu") + v("k-ap");
+  const prem = RATING.property({ plan: "complete", building: rebuild, contents, city: { 42000: "metro", 36000: "coastal", 32000: "tier2" }[v("k-city")] }).total;
+  const p = c && H.pol(c, "property");
+  document.getElementById("k-sum").innerHTML = `<span class="cdh-tag" style="color:#7FE3E3">Recommended cover</span>
+    <div class="line" style="margin-top:12px"><span>Building (rebuild cost)</span><span>${lakh(rebuild)}</span></div>
+    <div class="line"><span>Contents</span><span>${lakh(contents)}</span></div>
+    <div class="total"><span>Est. premium</span><b>${money(prem)}</b></div>
+    <a class="btn btn-primary btn-block" style="margin-top:16px" href="quote.html?line=property">Get this cover</a>`;
+  document.getElementById("k-out").innerHTML = p && p.sumInsured ? (p.sumInsured < H.rebuildCost(p) * .9
+    ? `<div class="notice warn">${icon("alert")}<div>Your policy ${p.no} insures the building for <b>${lakh(p.sumInsured)}</b>, but your home's rebuild cost is about <b>${lakh(H.rebuildCost(p))}</b>. <a class="link" href="policy.html?no=${p.no}#si">Fix my cover →</a></div></div>`
+    : `<div class="notice ok">${icon("check")}<div>Your policy ${p.no} (${lakh(p.sumInsured)}) looks adequate for your home.</div></div>`) : "";
+}
+document.querySelectorAll("#calculator input, #calculator select").forEach(el => el.addEventListener("input", calc));
+calc();
+if (location.hash) setTimeout(() => { const el = document.querySelector(location.hash); if (el) el.scrollIntoView({ behavior: "smooth" }); }, 250);
+</script>
+</body>
+</html>

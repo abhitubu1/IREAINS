@@ -1,0 +1,6 @@
+# Office temporary lock files
+~$*
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+__pycache__/
